@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="—Q Dashboard">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9fd8ef"/>
+      <stop offset="55%" stop-color="#c5ebc8"/>
+      <stop offset="100%" stop-color="#7ec8a3"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#sky)"/>
+  <circle cx="380" cy="120" r="58" fill="#ffe9a0"/>
+  <ellipse cx="256" cy="390" rx="210" ry="70" fill="#5fad72" opacity="0.9"/>
+  <ellipse cx="180" cy="360" rx="90" ry="40" fill="#8fd39a"/>
+  <path d="M150 300c20-70 60-110 106-110s86 40 106 110c-40 18-72 26-106 26s-66-8-106-26z" fill="#3d8f6e"/>
+  <circle cx="230" cy="250" r="10" fill="#fff6c8"/>
+  <circle cx="282" cy="248" r="10" fill="#fff6c8"/>
+  <path d="M236 278c14 14 40 14 54 0" fill="none" stroke="#fff6c8" stroke-width="8" stroke-linecap="round"/>
+</svg>

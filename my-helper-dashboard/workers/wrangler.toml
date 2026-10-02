@@ -1,0 +1,6 @@
+name = "lam-tsuen-dashboard-proxy"
+main = "proxy.js"
+compatibility_date = "2026-01-01"
+
+# Deploy only if browser CORS to HKO/KMB breaks.
+# wrangler deploy
