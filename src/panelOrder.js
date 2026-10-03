@@ -1,7 +1,15 @@
 /** Device-local panel order. Never synced across devices. */
 export const PANEL_ORDER_KEY = "my-helper.panel-order.v1";
 
-export const DEFAULT_PANEL_ORDER = ["clock", "weather", "bus", "mtr", "radio"];
+export const DEFAULT_PANEL_ORDER = [
+  "clock",
+  "weather",
+  "holiday",
+  "bus",
+  "mtr",
+  "mtrStatus",
+  "radio",
+];
 
 /** Viewport edge zone (px) that triggers auto-scroll while dragging. */
 const EDGE_ZONE = 72;

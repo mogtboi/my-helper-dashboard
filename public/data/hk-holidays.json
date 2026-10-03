@@ -1,0 +1,456 @@
+{
+  "source": "1823.gov.hk general holidays; statutory tags per Employment Ordinance (maintained); bank ≈ general",
+  "updated": "2026-10-03",
+  "holidays": [
+    {
+      "date": "2025-01-01",
+      "nameTc": "一月一日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-01-29",
+      "nameTc": "農曆年初一",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-01-30",
+      "nameTc": "農曆年初二",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-01-31",
+      "nameTc": "農曆年初三",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-04-04",
+      "nameTc": "清明節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-04-18",
+      "nameTc": "耶穌受難節",
+      "types": [
+        "general",
+        "bank"
+      ]
+    },
+    {
+      "date": "2025-04-19",
+      "nameTc": "耶穌受難節翌日",
+      "types": [
+        "general",
+        "bank"
+      ]
+    },
+    {
+      "date": "2025-04-21",
+      "nameTc": "復活節星期一",
+      "types": [
+        "general",
+        "bank"
+      ]
+    },
+    {
+      "date": "2025-05-01",
+      "nameTc": "勞動節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-05-05",
+      "nameTc": "佛誕",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-05-31",
+      "nameTc": "端午節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-07-01",
+      "nameTc": "香港特別行政區成立紀念日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-10-01",
+      "nameTc": "國慶日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-10-07",
+      "nameTc": "中秋節翌日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-10-29",
+      "nameTc": "重陽節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-12-25",
+      "nameTc": "聖誕節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2025-12-26",
+      "nameTc": "聖誕節後第一個周日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-01-01",
+      "nameTc": "一月一日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-02-17",
+      "nameTc": "農曆年初一",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-02-18",
+      "nameTc": "農曆年初二",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-02-19",
+      "nameTc": "農曆年初三",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-04-03",
+      "nameTc": "耶穌受難節",
+      "types": [
+        "general",
+        "bank"
+      ]
+    },
+    {
+      "date": "2026-04-04",
+      "nameTc": "耶穌受難節翌日",
+      "types": [
+        "general",
+        "bank"
+      ]
+    },
+    {
+      "date": "2026-04-06",
+      "nameTc": "清明節翌日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-04-07",
+      "nameTc": "復活節星期一翌日",
+      "types": [
+        "general",
+        "bank"
+      ]
+    },
+    {
+      "date": "2026-05-01",
+      "nameTc": "勞動節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "nameTc": "佛誕翌日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-06-19",
+      "nameTc": "端午節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-07-01",
+      "nameTc": "香港特別行政區成立紀念日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-09-26",
+      "nameTc": "中秋節翌日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-10-01",
+      "nameTc": "國慶日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-10-19",
+      "nameTc": "重陽節翌日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-12-25",
+      "nameTc": "聖誕節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2026-12-26",
+      "nameTc": "聖誕節後第一個周日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-01-01",
+      "nameTc": "一月一日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-02-06",
+      "nameTc": "農曆年初一",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-02-08",
+      "nameTc": "農曆年初三",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-02-09",
+      "nameTc": "農曆年初四",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-03-26",
+      "nameTc": "耶穌受難節",
+      "types": [
+        "general",
+        "bank"
+      ]
+    },
+    {
+      "date": "2027-03-27",
+      "nameTc": "耶穌受難節翌日",
+      "types": [
+        "general",
+        "bank"
+      ]
+    },
+    {
+      "date": "2027-03-29",
+      "nameTc": "復活節星期一",
+      "types": [
+        "general",
+        "bank"
+      ]
+    },
+    {
+      "date": "2027-04-05",
+      "nameTc": "清明節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-05-01",
+      "nameTc": "勞動節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-05-13",
+      "nameTc": "佛誕",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-06-09",
+      "nameTc": "端午節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-07-01",
+      "nameTc": "香港特別行政區成立紀念日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-09-16",
+      "nameTc": "中秋節翌日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-10-01",
+      "nameTc": "國慶日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-10-08",
+      "nameTc": "重陽節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-12-25",
+      "nameTc": "聖誕節",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    },
+    {
+      "date": "2027-12-27",
+      "nameTc": "聖誕節後第一個周日",
+      "types": [
+        "general",
+        "bank",
+        "statutory"
+      ]
+    }
+  ]
+}

@@ -4,6 +4,8 @@ import { startClock } from "./clock.js";
 import { createWeather } from "./weather.js";
 import { createBus } from "./bus.js";
 import { createMtr } from "./mtr.js";
+import { createMtrStatus } from "./mtrStatus.js";
+import { createHoliday } from "./holiday.js";
 import { createRadio } from "./radio.js";
 import { loadBusSelection } from "./busStore.js";
 import { loadWeatherPlace, districtById } from "./weatherStore.js";
@@ -14,6 +16,14 @@ import {
   savePanelOrder,
   enablePanelReorder,
 } from "./panelOrder.js";
+import {
+  loadModuleEnabled,
+  saveModuleEnabled,
+  loadAppearance,
+  saveAppearance,
+  applyAppearance,
+} from "./prefsStore.js";
+import { createDrawer } from "./drawer.js";
 
 const app = document.querySelector("#app");
 
@@ -29,6 +39,7 @@ const panelShell = (id, titleId, titleText, bodyId, extraClass = "") => `
 
 app.innerHTML = `
   <header class="brand-bar">
+    <button type="button" class="menu-btn" id="menu-btn" aria-label="開啟選單">☰</button>
     <div class="brand">
       my helper
       <small>個人儀表板</small>
@@ -36,7 +47,7 @@ app.innerHTML = `
     <div class="status-pill" id="net-status" aria-live="polite">連線中</div>
   </header>
 
-  <p class="reorder-hint muted">撳左邊 ⋮⋮ 上下拖曳可調順序（只存呢部機）</p>
+  <p class="reorder-hint muted">左邊滑入選單；⋮⋮ 可拖曳排序（只存呢部機）</p>
 
   <div id="panel-stack" class="panel-stack">
     <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
@@ -51,14 +62,21 @@ app.innerHTML = `
     </section>
 
     ${panelShell("weather", "weather-title", "天氣", "weather-root")}
+    ${panelShell("holiday", "holiday-title", "公眾假期", "holiday-root")}
     ${panelShell("bus", "bus-title", "巴士", "bus-root")}
     ${panelShell("mtr", "mtr-title", "港鐵", "mtr-root")}
+    ${panelShell("mtrStatus", "mtr-status-title", "港鐵車務", "mtr-status-root")}
     ${panelShell("radio", "radio-title", "電台", "radio-root")}
   </div>
 
-  <p class="footer-note">公開資料：天文台 · 九巴 ETA · 港鐵 Next Train · RTHK（手動播放）· 設定／排序只存本機</p>
+  <p class="footer-note">公開資料：天文台 · AQHI · 九巴 · 港鐵 · 1823 假期 · RTHK · 設定只存本機</p>
+  <div id="drawer-root"></div>
   <div id="settings-overlay" class="settings-overlay" hidden></div>
 `;
+
+let moduleEnabled = loadModuleEnabled();
+let appearance = loadAppearance();
+applyAppearance(appearance);
 
 const netStatus = document.querySelector("#net-status");
 const setNet = (text) => {
@@ -66,11 +84,20 @@ const setNet = (text) => {
 };
 
 const stack = document.querySelector("#panel-stack");
+
+const applyVisibility = () => {
+  stack.querySelectorAll("[data-panel-id]").forEach((el) => {
+    const id = el.dataset.panelId;
+    el.hidden = moduleEnabled[id] === false;
+  });
+};
+
 const reorder = enablePanelReorder(stack, {
   onReorder: () => setNet("版面順序已更新（本機）"),
 });
 reorder.applyOrder(loadPanelOrder());
 savePanelOrder(loadPanelOrder());
+applyVisibility();
 
 startClock({
   timeEl: document.querySelector("#clock-time"),
@@ -96,6 +123,8 @@ const weather = createWeather(document.querySelector("#weather-root"), config.we
   onChangePlace: () => settings.open("weather"),
 });
 
+const holiday = createHoliday(document.querySelector("#holiday-root"), { onStatus: setNet });
+
 const bus = createBus(
   document.querySelector("#bus-root"),
   document.querySelector("#bus-title"),
@@ -119,6 +148,10 @@ const mtr = createMtr(
     },
   }
 );
+
+const mtrStatus = createMtrStatus(document.querySelector("#mtr-status-root"), {
+  onStatus: setNet,
+});
 
 const settings = createAppSettings({
   overlayRoot: overlay,
@@ -147,11 +180,34 @@ const settings = createAppSettings({
   },
 });
 
+const drawer = createDrawer({
+  root: document.querySelector("#drawer-root"),
+  getEnabled: () => moduleEnabled,
+  setEnabled: (next) => {
+    moduleEnabled = next;
+  },
+  onEnabledChange: (next) => {
+    moduleEnabled = next;
+    applyVisibility();
+    setNet("主頁模組已更新（本機）");
+  },
+  getAppearance: () => appearance,
+  setAppearance: (next) => {
+    appearance = next;
+  },
+  onAppearanceChange: () => setNet("外觀已更新（本機）"),
+  onOpenSettings: () => settings.open("bus"),
+});
+
+document.querySelector("#menu-btn").addEventListener("click", () => drawer.toggle());
+
 const boot = () => {
   updateWeatherTitle(weatherPlace);
   weather.start(weatherPlace);
+  holiday.start();
   bus.start(busSelection);
   mtr.start(mtrSelection);
+  mtrStatus.start();
   createRadio(document.querySelector("#radio-root"), config.radio);
 };
 
@@ -171,9 +227,7 @@ if (!weatherPlace) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {
-      /* offline install optional in dev */
-    });
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
   });
 }
 

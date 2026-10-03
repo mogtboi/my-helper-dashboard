@@ -1,9 +1,10 @@
 /* my helper dashboard — static shell cache only. No API caching. */
-const CACHE = "my-helper-shell-v7";
+const CACHE = "my-helper-shell-v8";
 const PRECACHE = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
+  "./data/hk-holidays.json",
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -34,6 +35,8 @@ self.addEventListener("fetch", (event) => {
     url.hostname.includes("weather.gov.hk") ||
     url.hostname.includes("etabus.gov.hk") ||
     url.hostname.includes("rt.data.gov.hk") ||
+    url.hostname.includes("dashboard.data.gov.hk") ||
+    url.hostname.includes("mtr.com.hk") ||
     url.hostname.includes("akamaized.net") ||
     url.hostname.includes("rthk.hk")
   ) {
