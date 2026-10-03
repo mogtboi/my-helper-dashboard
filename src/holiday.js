@@ -24,6 +24,16 @@ function typeLabels(types) {
   return (types || []).map((t) => map[t] || t).join(" · ");
 }
 
+function monthPrefix(isoDate) {
+  return isoDate.slice(0, 7); // YYYY-MM
+}
+
+function countStatutoryInMonth(list, ym) {
+  return list.filter(
+    (h) => h.date?.startsWith(ym) && Array.isArray(h.types) && h.types.includes("statutory")
+  ).length;
+}
+
 export function createHoliday(root, { onStatus } = {}) {
   let timer = null;
 
@@ -33,11 +43,15 @@ export function createHoliday(root, { onStatus } = {}) {
       return;
     }
     const today = todayIso();
+    const ym = monthPrefix(today);
     const list = payload.holidays || [];
     const todayHit = list.find((h) => h.date === today);
     const upcoming = list.filter((h) => h.date >= today);
     const next = upcoming[0];
     const nextDays = next ? daysUntil(next.date, today) : null;
+    const labourThisMonth = countStatutoryInMonth(list, ym);
+    const [, monthNum] = ym.split("-");
+    const monthLabel = `${Number(monthNum)} 月`;
 
     root.innerHTML = `
       <div class="holiday-today ${todayHit ? "is-holiday" : ""}">
@@ -46,6 +60,11 @@ export function createHoliday(root, { onStatus } = {}) {
             ? `<strong>今日係假期</strong><div class="muted">${todayHit.nameTc} · ${typeLabels(todayHit.types)}</div>`
             : `<strong>今日唔係公眾假期</strong><div class="muted">${today}</div>`
         }
+      </div>
+      <div class="holiday-month-stat">
+        <div class="eta-dir">本月勞工假</div>
+        <div class="holiday-countdown">${labourThisMonth} 日</div>
+        <div class="muted">${monthLabel}共有 ${labourThisMonth} 個法定／勞工假期</div>
       </div>
       ${
         next

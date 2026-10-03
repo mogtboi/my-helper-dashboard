@@ -8,7 +8,6 @@ export const MODULE_CATALOG = [
   { id: "weather", nameTc: "天氣（含警示／UV／空氣／日出）", category: "天氣" },
   { id: "bus", nameTc: "巴士 ETA", category: "巴士" },
   { id: "mtr", nameTc: "港鐵下一班車", category: "港鐵" },
-  { id: "mtrStatus", nameTc: "港鐵車務狀況", category: "港鐵" },
   { id: "holiday", nameTc: "公眾假期倒數", category: "假期" },
   { id: "radio", nameTc: "電台（港台）", category: "設定" },
 ];
@@ -20,7 +19,6 @@ export const DEFAULT_ENABLED = {
   weather: true,
   bus: true,
   mtr: true,
-  mtrStatus: true,
   holiday: true,
   radio: true,
 };
@@ -87,8 +85,20 @@ export function saveAppearance(appearance) {
 export function applyAppearance(appearance) {
   const font = FONT_STEPS.find((f) => f.id === appearance.font) || FONT_STEPS[1];
   const accent = ACCENT_OPTIONS.find((a) => a.id === appearance.accent) || ACCENT_OPTIONS[0];
+  const rgb = hexToRgbTriplet(accent.value);
   document.documentElement.style.setProperty("--font-scale", String(font.scale));
   document.documentElement.style.setProperty("--accent", accent.value);
+  document.documentElement.style.setProperty("--accent-rgb", rgb);
   document.documentElement.dataset.font = font.id;
   document.documentElement.dataset.accent = accent.id;
+}
+
+function hexToRgbTriplet(hex) {
+  const raw = String(hex || "").replace("#", "").trim();
+  if (raw.length !== 6) return "95, 191, 149";
+  const r = parseInt(raw.slice(0, 2), 16);
+  const g = parseInt(raw.slice(2, 4), 16);
+  const b = parseInt(raw.slice(4, 6), 16);
+  if ([r, g, b].some((n) => Number.isNaN(n))) return "95, 191, 149";
+  return `${r}, ${g}, ${b}`;
 }

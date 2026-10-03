@@ -4,7 +4,6 @@ import { startClock } from "./clock.js";
 import { createWeather } from "./weather.js";
 import { createBus } from "./bus.js";
 import { createMtr } from "./mtr.js";
-import { createMtrStatus } from "./mtrStatus.js";
 import { createHoliday } from "./holiday.js";
 import { createRadio } from "./radio.js";
 import { loadBusSelection } from "./busStore.js";
@@ -65,7 +64,6 @@ app.innerHTML = `
     ${panelShell("holiday", "holiday-title", "公眾假期", "holiday-root")}
     ${panelShell("bus", "bus-title", "巴士", "bus-root")}
     ${panelShell("mtr", "mtr-title", "港鐵", "mtr-root")}
-    ${panelShell("mtrStatus", "mtr-status-title", "港鐵車務", "mtr-status-root")}
     ${panelShell("radio", "radio-title", "電台", "radio-root")}
   </div>
 
@@ -149,10 +147,6 @@ const mtr = createMtr(
   }
 );
 
-const mtrStatus = createMtrStatus(document.querySelector("#mtr-status-root"), {
-  onStatus: setNet,
-});
-
 const settings = createAppSettings({
   overlayRoot: overlay,
   getBusSelection: () => busSelection,
@@ -207,7 +201,6 @@ const boot = () => {
   holiday.start();
   bus.start(busSelection);
   mtr.start(mtrSelection);
-  mtrStatus.start();
   createRadio(document.querySelector("#radio-root"), config.radio);
 };
 
