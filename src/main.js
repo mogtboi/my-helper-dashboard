@@ -47,7 +47,7 @@ app.innerHTML = `
     <div class="status-pill" id="net-status" aria-live="polite">連線中</div>
   </header>
 
-  <p class="reorder-hint muted">左邊滑入選單；⋮⋮ 可拖曳排序（只存呢部機）</p>
+  <p class="reorder-hint muted">☰ 或左邊滑入選單；⋮⋮ 可拖曳排序（只存呢部機）</p>
 
   <div id="panel-stack" class="panel-stack">
     <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
@@ -196,7 +196,7 @@ const drawer = createDrawer({
     appearance = next;
   },
   onAppearanceChange: () => setNet("外觀已更新（本機）"),
-  onOpenSettings: () => settings.open("bus"),
+  onOpenSettings: (focus = "bus") => settings.open(focus),
 });
 
 document.querySelector("#menu-btn").addEventListener("click", () => drawer.toggle());
