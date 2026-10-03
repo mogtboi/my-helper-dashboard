@@ -97,7 +97,7 @@ body {
 .hero-clock {
   position: relative;
   text-align: center;
-  padding: 1.35rem 1rem 1.1rem;
+  padding: 0.75rem 1rem 0.7rem;
   margin-bottom: 0.9rem;
   border-radius: calc(var(--radius) + 0.15rem);
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(95, 191, 149, 0.06));
@@ -110,28 +110,28 @@ body {
 .hero-clock::before {
   content: "";
   position: absolute;
-  width: 6rem;
-  height: 6rem;
-  right: -0.8rem;
-  top: -1.3rem;
+  width: 4rem;
+  height: 4rem;
+  right: -0.6rem;
+  top: -1rem;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, rgba(212, 161, 90, 0.55), rgba(212, 161, 90, 0.08) 70%, transparent 72%);
+  background: radial-gradient(circle at 35% 35%, rgba(212, 161, 90, 0.4), rgba(212, 161, 90, 0.06) 70%, transparent 72%);
   animation: moon-bob 7s ease-in-out infinite;
   pointer-events: none;
 }
 
 .clock-time {
   position: relative;
-  font-size: clamp(3rem, 14vw, 4.2rem);
+  font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-  line-height: 1;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
   color: #f4f7f5;
 }
 
 .clock-date {
   position: relative;
-  margin-top: 0.45rem;
+  margin-top: 0.2rem;
   font-size: 1.05rem;
   color: var(--ink-soft);
 }
@@ -317,6 +317,57 @@ body {
 .route-option[aria-selected="true"] {
   border-color: rgba(95, 191, 149, 0.55);
   background: rgba(95, 191, 149, 0.12);
+}
+
+.route-option-other {
+  border-style: dashed;
+  color: var(--ink-soft);
+}
+
+.other-stops-panel {
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--line);
+}
+
+.search-sector {
+  margin-top: 0.95rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.search-sector-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  color: #dce8e1;
+}
+
+.search-sector-hint {
+  margin: 0 0 0.55rem;
+}
+
+.mtr-wizard {
+  margin-top: 0.35rem;
+}
+
+.wizard-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.mtr-line-grid,
+.mtr-sta-grid {
+  margin-top: 0.35rem;
+}
+
+.other-stop-pick {
+  max-height: 12rem;
 }
 
 .device-local-hint {

@@ -3,6 +3,7 @@ export function startClock({ timeEl, dateEl, locale, timeZone }) {
     timeZone,
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
     hour12: false,
   });
   const dateFmt = new Intl.DateTimeFormat(locale, {

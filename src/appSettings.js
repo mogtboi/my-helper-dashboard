@@ -9,7 +9,7 @@ import {
   mapStopsWithNames,
   findOppositeDirection,
 } from "./kmbApi.js";
-import { WEATHER_PLACES, saveWeatherPlace } from "./weatherStore.js";
+import { WEATHER_DISTRICTS, districtById, saveWeatherPlace } from "./weatherStore.js";
 import {
   MTR_STATION_CATALOG,
   saveMtrSelection,
@@ -53,8 +53,8 @@ export function createAppSettings({
         </nav>
 
         <div class="settings-panel" data-panel-body="weather" ${focus === "weather" ? "" : "hidden"}>
-          <h3 class="settings-sub">天氣地區</h3>
-          <p class="muted">揀天文台公開溫度站；只影響呢部機。</p>
+          <h3 class="settings-sub">天氣地區（十八區）</h3>
+          <p class="muted">揀香港十八區；只影響呢部機。</p>
           <div class="place-grid" id="settings-weather-places"></div>
           <p class="muted" id="weather-settings-status"></p>
         </div>
@@ -120,10 +120,10 @@ export function createAppSettings({
     const weatherGrid = sheet.querySelector("#settings-weather-places");
     const weatherStatus = sheet.querySelector("#weather-settings-status");
     const currentPlace = getWeatherPlace();
-    weatherGrid.innerHTML = WEATHER_PLACES.map(
-      (p) => `
-      <button type="button" class="place-chip" data-place="${p}"
-        aria-pressed="${p === currentPlace}">${p}</button>`
+    weatherGrid.innerHTML = WEATHER_DISTRICTS.map(
+      (d) => `
+      <button type="button" class="place-chip" data-place="${d.id}"
+        aria-pressed="${d.id === currentPlace}">${d.nameTc}</button>`
     ).join("");
     weatherGrid.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-place]");
@@ -134,7 +134,8 @@ export function createAppSettings({
       weatherGrid.querySelectorAll(".place-chip").forEach((c) => {
         c.setAttribute("aria-pressed", String(c.dataset.place === place));
       });
-      weatherStatus.textContent = `已儲存：${place}（只呢部機）`;
+      const label = districtById(place)?.nameTc || place;
+      weatherStatus.textContent = `已儲存：${label}（只呢部機）`;
     });
 
     // —— Bus ——
@@ -433,23 +434,23 @@ export function createAppSettings({
   return { open };
 }
 
-/** First-run / change weather region modal. */
+/** First-run / change weather region modal — 十八區. */
 export function openWeatherPlacePicker(overlayRoot, { currentPlace, onPick }) {
   overlayRoot.hidden = false;
   overlayRoot.innerHTML = `
     <div class="settings-backdrop"></div>
     <div class="settings-sheet place-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="place-picker-title">
       <header class="settings-head">
-        <h2 id="place-picker-title">揀天氣地區</h2>
+        <h2 id="place-picker-title">揀天氣地區（十八區）</h2>
       </header>
       <p class="settings-note">
-        第一次使用請揀你想睇嘅香港地區天氣。選擇只存在呢部機，之後可喺設定更改。
+        第一次使用請揀香港十八區。選擇只存在呢部機，之後可喺設定更改。
       </p>
       <div class="place-grid" id="first-place-grid">
-        ${WEATHER_PLACES.map(
-          (p) => `
-          <button type="button" class="place-chip" data-place="${p}"
-            aria-pressed="${p === currentPlace}">${p}</button>`
+        ${WEATHER_DISTRICTS.map(
+          (d) => `
+          <button type="button" class="place-chip" data-place="${d.id}"
+            aria-pressed="${d.id === currentPlace}">${d.nameTc}</button>`
         ).join("")}
       </div>
     </div>

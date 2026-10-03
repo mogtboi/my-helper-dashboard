@@ -6,7 +6,7 @@ import { createBus } from "./bus.js";
 import { createMtr } from "./mtr.js";
 import { createRadio } from "./radio.js";
 import { loadBusSelection } from "./busStore.js";
-import { loadWeatherPlace } from "./weatherStore.js";
+import { loadWeatherPlace, districtById } from "./weatherStore.js";
 import { loadMtrSelection } from "./mtrStore.js";
 import { createAppSettings, openWeatherPlacePicker } from "./appSettings.js";
 
@@ -72,7 +72,8 @@ let mtrSelection = loadMtrSelection();
 
 const weatherTitle = document.querySelector("#weather-title");
 const updateWeatherTitle = (place) => {
-  weatherTitle.textContent = place ? `天氣 · ${place}` : "天氣";
+  const label = districtById(place)?.nameTc || place;
+  weatherTitle.textContent = label ? `天氣 · ${label}` : "天氣";
 };
 
 const weather = createWeather(document.querySelector("#weather-root"), config.weather, {
@@ -95,6 +96,12 @@ const mtr = createMtr(
   {
     onStatus: setNet,
     onOpenSettings: () => settings.open("mtr"),
+    setSelectionExternal: (next) => {
+      mtrSelection = next;
+    },
+    onSelectionChange: (next) => {
+      mtrSelection = next;
+    },
   }
 );
 

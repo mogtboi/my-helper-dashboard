@@ -1,3 +1,5 @@
+import { districtById } from "./weatherStore.js";
+
 const HKO_ICON_DESC = {
   50: "陽光充沛",
   51: "間有陽光",
@@ -25,27 +27,27 @@ function formatUpdated(iso) {
   }
 }
 
-function pickTemp(temps, place) {
-  if (!place) return null;
+function pickTemp(temps, hkoTemp) {
+  if (!hkoTemp) return null;
   return (
-    temps.find((t) => t.place === place) ||
-    temps.find((t) => t.place.includes(place)) ||
+    temps.find((t) => t.place === hkoTemp) ||
+    temps.find((t) => t.place.includes(hkoTemp)) ||
     null
   );
 }
 
-function pickRainfall(rows, place) {
-  if (!place || !rows?.length) return null;
+function pickRainfall(rows, hkoRain) {
+  if (!hkoRain || !rows?.length) return null;
   return (
-    rows.find((r) => r.place === place) ||
-    rows.find((r) => r.place?.includes?.(place.replace("公園", ""))) ||
+    rows.find((r) => r.place === hkoRain) ||
+    rows.find((r) => r.place?.includes?.(hkoRain)) ||
     null
   );
 }
 
 /**
- * Weather panel. Call setPlace(place) after region picker / settings.
- * Does not fetch until a place is set.
+ * Weather panel for HK 18 districts.
+ * `place` is district id (e.g. 大埔); maps to HKO stations internally.
  */
 export function createWeather(root, weatherConfig, { onStatus, onChangePlace } = {}) {
   let place = null;
@@ -53,9 +55,10 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
   let timer = null;
 
   const render = (data, err) => {
-    if (!place) {
+    const district = districtById(place);
+    if (!place || !district) {
       root.innerHTML = `
-        <p class="muted">請先揀天氣地區</p>
+        <p class="muted">請先揀十八區天氣</p>
         <button type="button" class="tab" id="weather-pick-btn">揀地區</button>
       `;
       root.querySelector("#weather-pick-btn")?.addEventListener("click", () => {
@@ -69,13 +72,12 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
     }
     const payload = data || lastPayload;
     const temps = payload.temperature?.data || [];
-    const hit = pickTemp(temps, place) || temps[0];
+    const hit = pickTemp(temps, district.hkoTemp) || temps[0];
     const iconCode = Array.isArray(payload.icon) ? payload.icon[0] : payload.icon;
     const humidity = payload.humidity?.data?.[0]?.value;
-    const rainfall = pickRainfall(payload.rainfall?.data || [], place);
+    const rainfall = pickRainfall(payload.rainfall?.data || [], district.hkoRain);
     const warn = (payload.warningMessage || [])[0];
     const iconUrl = `${weatherConfig.iconBase}${iconCode}.png`;
-    const shownPlace = hit?.place || place;
 
     root.innerHTML = `
       <div class="weather-row">
@@ -83,7 +85,7 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
         <div>
           <div class="weather-temp">${hit ? `${hit.value}°` : "—"}</div>
           <div class="weather-meta">
-            ${shownPlace}
+            ${district.nameTc}
             · ${HKO_ICON_DESC[iconCode] || `圖示 ${iconCode}`}
             ${humidity != null ? `· 濕度 ${humidity}%` : ""}
           </div>
@@ -107,7 +109,7 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
   };
 
   const fetchWeather = async () => {
-    if (!place) {
+    if (!place || !districtById(place)) {
       render(null, null);
       return;
     }
