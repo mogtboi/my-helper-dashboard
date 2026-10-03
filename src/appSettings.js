@@ -11,11 +11,11 @@ import {
 } from "./kmbApi.js";
 import { WEATHER_DISTRICTS, districtById, saveWeatherPlace } from "./weatherStore.js";
 import {
-  MTR_STATION_CATALOG,
   saveMtrSelection,
   clearMtrSelection,
   catalogById,
 } from "./mtrStore.js";
+import { MTR_LINES, lineByCode, stationOnLine } from "./mtrLines.js";
 
 /**
  * Unified settings sheet: weather region, bus routes, MTR stations.
@@ -85,11 +85,8 @@ export function createAppSettings({
             <button type="button" class="ghost-btn" id="mtr-reset">恢復預設（大埔墟／太和）</button>
           </div>
           <h3 class="settings-sub">加入車站</h3>
-          <label class="field">
-            <span>搜尋</span>
-            <input id="mtr-search" type="search" placeholder="例如 大埔／沙田／觀塘" autocomplete="off" />
-          </label>
-          <div class="place-grid mtr-add-grid" id="mtr-catalog"></div>
+          <p class="muted">先揀綫，再揀要加入嘅車站（同主畫面一樣）</p>
+          <div id="mtr-add-wizard" class="mtr-add-wizard"></div>
           <p class="muted" id="mtr-status"></p>
         </div>
       </div>
@@ -340,9 +337,9 @@ export function createAppSettings({
 
     // —— MTR ——
     const mtrCurrent = sheet.querySelector("#mtr-current");
-    const mtrCatalog = sheet.querySelector("#mtr-catalog");
+    const mtrWizard = sheet.querySelector("#mtr-add-wizard");
     const mtrStatus = sheet.querySelector("#mtr-status");
-    const mtrSearch = sheet.querySelector("#mtr-search");
+    let addLineCode = null;
 
     const renderMtrCurrent = () => {
       const sel = getMtrSelection();
@@ -364,40 +361,114 @@ export function createAppSettings({
         .join("");
     };
 
-    const renderMtrCatalog = (q = "") => {
-      const needle = q.trim().toLowerCase();
+    const addStation = (meta) => {
+      if (!meta) return;
+      const sel = structuredClone(getMtrSelection());
+      if (sel.stations.some((s) => s.id === meta.id)) {
+        mtrStatus.textContent = `${meta.nameTc} 已喺列表`;
+        return;
+      }
+      sel.stations.push({ ...meta });
+      saveMtrSelection(sel);
+      setMtrSelection(sel);
+      onMtrChange(sel);
+      renderMtrCurrent();
+      paintMtrAddWizard();
+      mtrStatus.textContent = `已加入 ${meta.lineTc} · ${meta.nameTc}`;
+    };
+
+    const paintMtrAddWizard = () => {
+      if (!mtrWizard) return;
       const selected = new Set(getMtrSelection().stations.map((s) => s.id));
-      const list = MTR_STATION_CATALOG.filter((s) => {
-        if (!needle) return true;
-        return (
-          s.nameTc.includes(q.trim()) ||
-          s.lineTc.includes(q.trim()) ||
-          s.sta.toLowerCase().includes(needle) ||
-          s.line.toLowerCase().includes(needle)
-        );
-      }).slice(0, 40);
-      mtrCatalog.innerHTML = list
-        .map(
-          (s) => `
-        <button type="button" class="place-chip" data-mtr-add="${s.id}"
-          ${selected.has(s.id) ? "disabled" : ""}>
-          ${s.nameTc}<small>${s.lineTc}</small>
-        </button>`
-        )
-        .join("");
+
+      if (!addLineCode) {
+        mtrWizard.innerHTML = `
+          <p class="wizard-step">① 揀綫</p>
+          <div class="place-grid mtr-line-grid" id="mtr-settings-lines">
+            ${MTR_LINES.map(
+              (l) => `
+              <button type="button" class="place-chip" data-add-line="${l.code}">
+                ${l.nameTc}<small>${l.code}</small>
+              </button>`
+            ).join("")}
+          </div>
+        `;
+        mtrWizard.querySelector("#mtr-settings-lines").addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-add-line]");
+          if (!btn) return;
+          addLineCode = btn.dataset.addLine;
+          paintMtrAddWizard();
+        });
+        return;
+      }
+
+      const line = lineByCode(addLineCode);
+      if (!line) {
+        addLineCode = null;
+        paintMtrAddWizard();
+        return;
+      }
+
+      mtrWizard.innerHTML = `
+        <p class="wizard-step">② ${line.nameTc} · 揀站加入
+          <button type="button" class="ghost-btn" id="mtr-settings-back-line">返回揀綫</button>
+        </p>
+        <label class="field">
+          <span>喺呢條綫搜尋站名</span>
+          <input id="mtr-search" type="search" placeholder="例如 沙田／觀塘" autocomplete="off" />
+        </label>
+        <div class="place-grid mtr-add-grid" id="mtr-catalog"></div>
+      `;
+
+      const catalogEl = mtrWizard.querySelector("#mtr-catalog");
+      const searchEl = mtrWizard.querySelector("#mtr-search");
+
+      const renderStations = (q = "") => {
+        const needle = q.trim().toLowerCase();
+        const list = line.stations.filter((s) => {
+          if (!needle) return true;
+          return s.nameTc.includes(q.trim()) || s.sta.toLowerCase().includes(needle);
+        });
+        catalogEl.innerHTML = list
+          .map((s) => {
+            const id = `${line.code}-${s.sta}`;
+            return `
+            <button type="button" class="place-chip" data-mtr-add="${id}"
+              ${selected.has(id) ? "disabled" : ""}>
+              ${s.nameTc}<small>${line.nameTc}</small>
+            </button>`;
+          })
+          .join("");
+      };
+
+      renderStations();
+      searchEl.addEventListener("input", () => renderStations(searchEl.value));
+      mtrWizard.querySelector("#mtr-settings-back-line").addEventListener("click", () => {
+        addLineCode = null;
+        paintMtrAddWizard();
+      });
+      catalogEl.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-mtr-add]");
+        if (!btn || btn.disabled) return;
+        const id = btn.dataset.mtrAdd;
+        const meta = catalogById(id) || (() => {
+          const [lc, sta] = id.split("-");
+          return stationOnLine(lc, sta);
+        })();
+        addStation(meta);
+      });
     };
 
     renderMtrCurrent();
-    renderMtrCatalog();
-
-    mtrSearch.addEventListener("input", () => renderMtrCatalog(mtrSearch.value));
+    paintMtrAddWizard();
 
     sheet.querySelector("#mtr-reset").addEventListener("click", () => {
       const next = clearMtrSelection();
       setMtrSelection(next);
       onMtrChange(next);
       renderMtrCurrent();
-      renderMtrCatalog(mtrSearch.value);
+      addLineCode = null;
+      paintMtrAddWizard();
       mtrStatus.textContent = "已恢復預設港鐵站（只影響呢部機）";
     });
 
@@ -411,23 +482,7 @@ export function createAppSettings({
       setMtrSelection(next);
       onMtrChange(next);
       renderMtrCurrent();
-      renderMtrCatalog(mtrSearch.value);
-    });
-
-    mtrCatalog.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-mtr-add]");
-      if (!btn || btn.disabled) return;
-      const meta = catalogById(btn.dataset.mtrAdd);
-      if (!meta) return;
-      const sel = structuredClone(getMtrSelection());
-      if (sel.stations.some((s) => s.id === meta.id)) return;
-      sel.stations.push({ ...meta });
-      saveMtrSelection(sel);
-      setMtrSelection(sel);
-      onMtrChange(sel);
-      renderMtrCurrent();
-      renderMtrCatalog(mtrSearch.value);
-      mtrStatus.textContent = `已加入 ${meta.nameTc}`;
+      paintMtrAddWizard();
     });
   };
 
