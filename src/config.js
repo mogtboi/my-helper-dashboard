@@ -1,7 +1,6 @@
 /**
  * Plain config — no secrets.
- * Bus stop selection defaults live in busStore.js and can be changed
- * in the UI; choices are saved only in this device's localStorage.
+ * Bus / weather / MTR selections live in localStorage on this device only.
  */
 export const config = {
   locale: "zh-HK",
@@ -10,8 +9,6 @@ export const config = {
   weather: {
     /** HKO Open Data — CORS * */
     url: "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc",
-    /** Prefer this place label from temperature.data */
-    place: "大埔",
     refreshMs: 20 * 60 * 1000,
     iconBase: "https://www.hko.gov.hk/images/HKOWxIconOutline/pic",
   },

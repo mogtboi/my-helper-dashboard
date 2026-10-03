@@ -9,53 +9,123 @@ function minsUntil(etaIso, now = Date.now()) {
   return Math.round(diff / 60000);
 }
 
+/** Flatten stops into per-route option list (stop + direction). */
+function buildRouteGroups(selection) {
+  const map = new Map();
+  for (const stop of selection?.stops || []) {
+    const route = stop.route;
+    if (!map.has(route)) map.set(route, []);
+    for (const dir of stop.directions || []) {
+      map.get(route).push({
+        key: `${stop.id}::${dir.stopId}::${dir.bound || ""}`,
+        stop,
+        dir,
+        label: `${stop.nameTc} · ${dir.label}`,
+      });
+    }
+  }
+  return map;
+}
+
 /**
- * Bus ETA panel driven by device-local selection.
- * Call `setSelection(next)` after settings change.
+ * Bus ETA panel — one tile per route; expand for stop/direction options.
  */
 export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
   let selection = null;
-  let activeStopId = null;
+  let activeRoute = null;
+  let activeOptionKey = null;
   let lastHtml = "";
   let timer = null;
+  let groups = new Map();
 
   const paintShell = () => {
-    const stops = selection?.stops || [];
-    if (!activeStopId || !stops.some((s) => s.id === activeStopId)) {
-      activeStopId = stops[0]?.id || null;
+    groups = buildRouteGroups(selection);
+    const routes = [...groups.keys()];
+    if (!activeRoute || !groups.has(activeRoute)) {
+      activeRoute = routes[0] || null;
+    }
+    const options = groups.get(activeRoute) || [];
+    if (!activeOptionKey || !options.some((o) => o.key === activeOptionKey)) {
+      activeOptionKey = options[0]?.key || null;
     }
     if (titleEl) {
       titleEl.textContent = `巴士 ${selectionRoutesLabel(selection)}`;
     }
+
+    const multi = options.length > 1;
     root.innerHTML = `
       <div class="bus-toolbar">
-        <div class="stop-tabs" role="tablist" aria-label="巴士站"></div>
+        <div class="route-tiles" role="tablist" aria-label="巴士路線"></div>
         <button type="button" class="icon-btn settings-gear" id="bus-settings-btn" aria-label="巴士路線設定">設定</button>
       </div>
+      <div id="route-options" class="route-options" ${multi ? "" : "hidden"}></div>
       <div id="eta-body"><p class="muted">載入 ETA…</p></div>
       <p class="device-local-hint">路線設定只存呢部機 · 唔會同步其他裝置</p>
     `;
-    const tabs = root.querySelector(".stop-tabs");
-    tabs.innerHTML = stops
-      .map(
-        (s) => `
-        <button type="button" class="tab" role="tab" data-stop="${s.id}"
-          aria-selected="${s.id === activeStopId}">${s.route} · ${s.nameTc}</button>`
-      )
-      .join("");
 
-    tabs.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-stop]");
+    const tiles = root.querySelector(".route-tiles");
+    tiles.innerHTML = routes.length
+      ? routes
+          .map(
+            (r) => `
+        <button type="button" class="route-tile" role="tab" data-route="${r}"
+          aria-selected="${r === activeRoute}">${r}</button>`
+          )
+          .join("")
+      : `<span class="muted">未選路線</span>`;
+
+    tiles.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-route]");
       if (!btn) return;
-      activeStopId = btn.dataset.stop;
-      tabs.querySelectorAll(".tab").forEach((t) => {
-        t.setAttribute("aria-selected", String(t.dataset.stop === activeStopId));
+      activeRoute = btn.dataset.route;
+      const opts = groups.get(activeRoute) || [];
+      activeOptionKey = opts[0]?.key || null;
+      tiles.querySelectorAll(".route-tile").forEach((t) => {
+        t.setAttribute("aria-selected", String(t.dataset.route === activeRoute));
       });
+      paintOptions();
       refresh();
     });
 
     root.querySelector("#bus-settings-btn").addEventListener("click", () => {
       onOpenSettings?.();
+    });
+
+    paintOptions();
+  };
+
+  const paintOptions = () => {
+    const box = root.querySelector("#route-options");
+    if (!box) return;
+    const options = groups.get(activeRoute) || [];
+    if (options.length <= 1) {
+      box.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    box.hidden = false;
+    box.innerHTML = `
+      <p class="route-options-label">${activeRoute} · 揀站／方向</p>
+      <div class="route-option-list" role="listbox" aria-label="${activeRoute} 站同方向">
+        ${options
+          .map(
+            (o) => `
+          <button type="button" class="route-option" role="option"
+            data-opt="${o.key}" aria-selected="${o.key === activeOptionKey}">
+            ${o.label}
+          </button>`
+          )
+          .join("")}
+      </div>
+    `;
+    box.querySelector(".route-option-list").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-opt]");
+      if (!btn) return;
+      activeOptionKey = btn.dataset.opt;
+      box.querySelectorAll(".route-option").forEach((b) => {
+        b.setAttribute("aria-selected", String(b.dataset.opt === activeOptionKey));
+      });
+      refresh();
     });
   };
 
@@ -70,49 +140,43 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
   const refresh = async () => {
     const body = root.querySelector("#eta-body");
     if (!body || !selection) return;
-    const stop = selection.stops.find((s) => s.id === activeStopId);
-    if (!stop) {
+    const options = groups.get(activeRoute) || [];
+    const opt = options.find((o) => o.key === activeOptionKey) || options[0];
+    if (!opt) {
       body.innerHTML = `<p class="muted">未選擇車站 · 撳「設定」加入</p>`;
       return;
     }
 
+    const { stop, dir } = opt;
     try {
-      const blocks = await Promise.all(
-        stop.directions.map(async (dir) => {
-          const serviceType = dir.serviceType || stop.serviceType || "1";
-          const rows = await fetchEta(dir.stopId, stop.route, serviceType);
-          const now = Date.now();
-          const items = rows
-            .map((r) => ({
-              dest: r.dest_tc,
-              eta: r.eta,
-              mins: minsUntil(r.eta, now),
-              rmk: r.rmk_tc,
-            }))
-            .filter((r) => r.eta)
-            .slice(0, 3);
-          return { dir, items };
-        })
-      );
+      const serviceType = dir.serviceType || stop.serviceType || "1";
+      const rows = await fetchEta(dir.stopId, stop.route, serviceType);
+      const now = Date.now();
+      const items = rows
+        .map((r) => ({
+          dest: r.dest_tc,
+          eta: r.eta,
+          mins: minsUntil(r.eta, now),
+          rmk: r.rmk_tc,
+        }))
+        .filter((r) => r.eta)
+        .slice(0, 3);
 
-      lastHtml = blocks
-        .map(({ dir, items }) => {
-          if (!items.length) {
-            return `<div class="eta-dir">${stop.route} · ${dir.label}</div><p class="muted">暫無班次</p>`;
-          }
-          const list = items
-            .map((it) => {
-              const label =
-                it.mins === 0 ? "即將到達" : it.mins == null ? "—" : `${it.mins} 分鐘`;
-              return `<li class="eta-item">
-                <span class="eta-dest">${it.dest}${it.rmk ? ` · ${it.rmk}` : ""}</span>
-                <span class="eta-mins">${label}</span>
-              </li>`;
-            })
-            .join("");
-          return `<div class="eta-dir">${stop.route} · ${dir.label} · ${stop.nameTc}</div><ul class="eta-list">${list}</ul>`;
-        })
-        .join('<div style="height:0.55rem"></div>');
+      if (!items.length) {
+        lastHtml = `<div class="eta-dir">${stop.route} · ${opt.label}</div><p class="muted">暫無班次</p>`;
+      } else {
+        const list = items
+          .map((it) => {
+            const label =
+              it.mins === 0 ? "即將到達" : it.mins == null ? "—" : `${it.mins} 分鐘`;
+            return `<li class="eta-item">
+              <span class="eta-dest">${it.dest}${it.rmk ? ` · ${it.rmk}` : ""}</span>
+              <span class="eta-mins">${label}</span>
+            </li>`;
+          })
+          .join("");
+        lastHtml = `<div class="eta-dir">${stop.route} · ${opt.label}</div><ul class="eta-list">${list}</ul>`;
+      }
 
       body.innerHTML = lastHtml;
       onStatus?.("巴士已更新");

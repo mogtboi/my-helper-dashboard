@@ -1,7 +1,7 @@
 /** Device-local bus selection. Never sent to a server. */
 export const BUS_STORAGE_KEY = "lam-tsuen-dashboard.bus.v1";
 
-/** Default Lam Tsuen / 64K watches (also used when storage empty or cleared). */
+/** Default sample watches (64K area stops). Product name is separate. */
 export function defaultBusSelection() {
   return {
     version: 1,
@@ -95,7 +95,7 @@ export function clearBusSelection() {
 
 export function selectionRoutesLabel(selection) {
   const routes = [...new Set((selection.stops || []).map((s) => s.route))];
-  return routes.length ? routes.join(" · ") : "巴士";
+  return routes.length ? routes.join(" · ") : "";
 }
 
 export function makeStopId(route, stopId) {

@@ -3,17 +3,20 @@ import { config } from "./config.js";
 import { startClock } from "./clock.js";
 import { createWeather } from "./weather.js";
 import { createBus } from "./bus.js";
+import { createMtr } from "./mtr.js";
 import { createRadio } from "./radio.js";
 import { loadBusSelection } from "./busStore.js";
-import { createBusSettings } from "./busSettings.js";
+import { loadWeatherPlace } from "./weatherStore.js";
+import { loadMtrSelection } from "./mtrStore.js";
+import { createAppSettings, openWeatherPlacePicker } from "./appSettings.js";
 
 const app = document.querySelector("#app");
 
 app.innerHTML = `
   <header class="brand-bar">
     <div class="brand">
-      林村 Dashboard
-      <small>Lam Tsuen · Tai Po</small>
+      my helper
+      <small>個人儀表板</small>
     </div>
     <div class="status-pill" id="net-status" aria-live="polite">連線中</div>
   </header>
@@ -25,7 +28,7 @@ app.innerHTML = `
 
   <div class="grid">
     <section class="panel" aria-labelledby="weather-title">
-      <h2 id="weather-title">天氣 · 大埔</h2>
+      <h2 id="weather-title">天氣</h2>
       <div id="weather-root"></div>
     </section>
 
@@ -34,13 +37,18 @@ app.innerHTML = `
       <div id="bus-root"></div>
     </section>
 
+    <section class="panel" aria-labelledby="mtr-title">
+      <h2 id="mtr-title">港鐵</h2>
+      <div id="mtr-root"></div>
+    </section>
+
     <section class="panel span-2" aria-labelledby="radio-title">
       <h2 id="radio-title">電台</h2>
       <div id="radio-root"></div>
     </section>
   </div>
 
-  <p class="footer-note">公開資料：天文台 · 九巴 ETA · RTHK 官方串流（手動播放）· 巴士設定只存本機</p>
+  <p class="footer-note">公開資料：天文台 · 九巴 ETA · 港鐵 Next Train · RTHK（手動播放）· 設定只存本機</p>
   <div id="settings-overlay" class="settings-overlay" hidden></div>
 `;
 
@@ -56,28 +64,88 @@ const setNet = (text) => {
   netStatus.textContent = text;
 };
 
-createWeather(document.querySelector("#weather-root"), config.weather, { onStatus: setNet });
+const overlay = document.querySelector("#settings-overlay");
 
+let weatherPlace = loadWeatherPlace();
 let busSelection = loadBusSelection();
-const bus = createBus(document.querySelector("#bus-root"), document.querySelector("#bus-title"), {
+let mtrSelection = loadMtrSelection();
+
+const weatherTitle = document.querySelector("#weather-title");
+const updateWeatherTitle = (place) => {
+  weatherTitle.textContent = place ? `天氣 · ${place}` : "天氣";
+};
+
+const weather = createWeather(document.querySelector("#weather-root"), config.weather, {
   onStatus: setNet,
-  onOpenSettings: () => settings.open(),
+  onChangePlace: () => settings.open("weather"),
 });
 
-const settings = createBusSettings({
-  overlayRoot: document.querySelector("#settings-overlay"),
-  getSelection: () => busSelection,
-  setSelection: (next) => {
+const bus = createBus(
+  document.querySelector("#bus-root"),
+  document.querySelector("#bus-title"),
+  {
+    onStatus: setNet,
+    onOpenSettings: () => settings.open("bus"),
+  }
+);
+
+const mtr = createMtr(
+  document.querySelector("#mtr-root"),
+  document.querySelector("#mtr-title"),
+  {
+    onStatus: setNet,
+    onOpenSettings: () => settings.open("mtr"),
+  }
+);
+
+const settings = createAppSettings({
+  overlayRoot: overlay,
+  getBusSelection: () => busSelection,
+  setBusSelection: (next) => {
     busSelection = next;
   },
-  onChange: (next) => {
+  onBusChange: (next) => {
     bus.setSelection(next);
     setNet("巴士設定已更新（本機）");
   },
+  getWeatherPlace: () => weatherPlace,
+  onWeatherPlaceChange: (place) => {
+    weatherPlace = place;
+    updateWeatherTitle(place);
+    weather.setPlace(place);
+    setNet("天氣地區已更新（本機）");
+  },
+  getMtrSelection: () => mtrSelection,
+  setMtrSelection: (next) => {
+    mtrSelection = next;
+  },
+  onMtrChange: (next) => {
+    mtr.setSelection(next);
+    setNet("港鐵設定已更新（本機）");
+  },
 });
 
-bus.start(busSelection);
-createRadio(document.querySelector("#radio-root"), config.radio);
+const boot = () => {
+  updateWeatherTitle(weatherPlace);
+  weather.start(weatherPlace);
+  bus.start(busSelection);
+  mtr.start(mtrSelection);
+  createRadio(document.querySelector("#radio-root"), config.radio);
+};
+
+if (!weatherPlace) {
+  openWeatherPlacePicker(overlay, {
+    currentPlace: null,
+    onPick: (place) => {
+      weatherPlace = place;
+      updateWeatherTitle(place);
+      setNet(`天氣地區：${place}`);
+      boot();
+    },
+  });
+} else {
+  boot();
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
