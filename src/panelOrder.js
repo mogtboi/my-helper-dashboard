@@ -3,6 +3,11 @@ export const PANEL_ORDER_KEY = "my-helper.panel-order.v1";
 
 export const DEFAULT_PANEL_ORDER = ["clock", "weather", "bus", "mtr", "radio"];
 
+/** Viewport edge zone (px) that triggers auto-scroll while dragging. */
+const EDGE_ZONE = 72;
+/** Max scroll speed (px per frame ~60fps). */
+const MAX_SCROLL_SPEED = 28;
+
 export function loadPanelOrder() {
   try {
     const raw = localStorage.getItem(PANEL_ORDER_KEY);
@@ -32,12 +37,14 @@ export function savePanelOrder(order) {
 
 /**
  * Pointer-based reorder (phone-friendly). Drag via handle only.
+ * Near top/bottom of viewport, auto-scrolls the page during drag.
  */
 export function enablePanelReorder(stackEl, { onReorder } = {}) {
   let dragging = null;
-  let startY = 0;
   let offsetY = 0;
   let placeholder = null;
+  let lastClientY = 0;
+  let scrollRaf = 0;
 
   const panels = () =>
     [...stackEl.children].filter((el) => el.matches?.("[data-panel-id]"));
@@ -68,6 +75,58 @@ export function enablePanelReorder(stackEl, { onReorder } = {}) {
     if (!inserted) stackEl.appendChild(placeholder);
   };
 
+  const positionDragging = (clientY) => {
+    if (!dragging) return;
+    const top = clientY - offsetY;
+    dragging.style.top = `${top}px`;
+    dragging.style.transform = "none";
+    movePlaceholder(clientY);
+  };
+
+  const edgeScrollSpeed = (clientY) => {
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    if (clientY < EDGE_ZONE) {
+      const t = 1 - clientY / EDGE_ZONE;
+      return -Math.ceil(MAX_SCROLL_SPEED * Math.min(1, Math.max(0, t)));
+    }
+    if (clientY > vh - EDGE_ZONE) {
+      const t = 1 - (vh - clientY) / EDGE_ZONE;
+      return Math.ceil(MAX_SCROLL_SPEED * Math.min(1, Math.max(0, t)));
+    }
+    return 0;
+  };
+
+  const stopAutoScroll = () => {
+    if (scrollRaf) {
+      cancelAnimationFrame(scrollRaf);
+      scrollRaf = 0;
+    }
+  };
+
+  const tickAutoScroll = () => {
+    scrollRaf = 0;
+    if (!dragging) return;
+    const speed = edgeScrollSpeed(lastClientY);
+    if (speed !== 0) {
+      const before = window.scrollY || window.pageYOffset || 0;
+      window.scrollBy(0, speed);
+      const after = window.scrollY || window.pageYOffset || 0;
+      // Keep floating card under finger while page scrolls
+      if (after !== before) {
+        positionDragging(lastClientY);
+      }
+    }
+    if (dragging) {
+      scrollRaf = requestAnimationFrame(tickAutoScroll);
+    }
+  };
+
+  const startAutoScroll = () => {
+    if (!scrollRaf) {
+      scrollRaf = requestAnimationFrame(tickAutoScroll);
+    }
+  };
+
   const onPointerDown = (e) => {
     const handle = e.target.closest("[data-drag-handle]");
     if (!handle || !stackEl.contains(handle)) return;
@@ -77,8 +136,8 @@ export function enablePanelReorder(stackEl, { onReorder } = {}) {
 
     dragging = panel;
     const rect = panel.getBoundingClientRect();
-    startY = e.clientY;
     offsetY = e.clientY - rect.top;
+    lastClientY = e.clientY;
 
     placeholder = document.createElement("div");
     placeholder.className = "panel-placeholder";
@@ -93,22 +152,22 @@ export function enablePanelReorder(stackEl, { onReorder } = {}) {
     panel.style.zIndex = "30";
     panel.style.margin = "0";
     panel.style.pointerEvents = "none";
-    // Keep in DOM but after placeholder visually floats
     stackEl.appendChild(panel);
 
     handle.setPointerCapture?.(e.pointerId);
+    startAutoScroll();
   };
 
   const onPointerMove = (e) => {
     if (!dragging || !placeholder) return;
-    const top = e.clientY - offsetY;
-    dragging.style.top = `${top}px`;
-    dragging.style.transform = "none";
-    movePlaceholder(e.clientY);
+    lastClientY = e.clientY;
+    positionDragging(e.clientY);
+    startAutoScroll();
   };
 
   const onPointerUp = () => {
     if (!dragging || !placeholder) return;
+    stopAutoScroll();
     placeholder.replaceWith(dragging);
     dragging.classList.remove("panel-dragging");
     dragging.style.cssText = "";
@@ -128,6 +187,7 @@ export function enablePanelReorder(stackEl, { onReorder } = {}) {
     applyOrder,
     readOrder,
     destroy: () => {
+      stopAutoScroll();
       stackEl.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
