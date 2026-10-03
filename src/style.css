@@ -732,11 +732,6 @@ body {
   min-height: 1.2em;
 }
 
-.radio-status a.radio-home-link {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
 .mtr-add-wizard {
   margin-top: 0.35rem;
 }
