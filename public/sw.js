@@ -1,5 +1,5 @@
 /* my helper dashboard — static shell cache only. No API caching. */
-const CACHE = "my-helper-shell-v5";
+const CACHE = "my-helper-shell-v6";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -35,10 +35,7 @@ self.addEventListener("fetch", (event) => {
     url.hostname.includes("etabus.gov.hk") ||
     url.hostname.includes("rt.data.gov.hk") ||
     url.hostname.includes("akamaized.net") ||
-    url.hostname.includes("rthk.hk") ||
-    url.hostname.includes("cloudfront.net") ||
-    url.hostname.includes("881903.com") ||
-    url.hostname.includes("hktoolbar.com")
+    url.hostname.includes("rthk.hk")
   ) {
     return;
   }

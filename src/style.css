@@ -94,17 +94,79 @@ body {
   white-space: nowrap;
 }
 
+.reorder-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.75rem;
+}
+
+.panel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+
+.panel-head h2,
+.panel-head-label {
+  margin: 0;
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #dce8e1;
+  letter-spacing: 0.03em;
+}
+
+.drag-handle {
+  appearance: none;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: -0.12em;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  background: rgba(95, 191, 149, 0.16);
+  color: var(--ink);
+}
+
+.panel-dragging {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  opacity: 0.96;
+  touch-action: none;
+}
+
+.panel-placeholder {
+  border: 1px dashed rgba(95, 191, 149, 0.45);
+  border-radius: var(--radius);
+  background: rgba(95, 191, 149, 0.06);
+}
+
 .hero-clock {
   position: relative;
   text-align: center;
-  padding: 0.75rem 1rem 0.7rem;
-  margin-bottom: 0.9rem;
-  border-radius: calc(var(--radius) + 0.15rem);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(95, 191, 149, 0.06));
+  padding: 0.55rem 0.35rem 0.25rem;
+  margin: 0;
+  border-radius: 0.85rem;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(95, 191, 149, 0.05));
   border: 1px solid var(--line);
-  box-shadow: var(--shadow);
   overflow: hidden;
-  animation: rise-in 0.85s ease-out 0.08s both;
 }
 
 .hero-clock::before {
@@ -136,22 +198,9 @@ body {
   color: var(--ink-soft);
 }
 
-.grid {
-  display: grid;
-  gap: 0.85rem;
-}
-
 @media (min-width: 720px) {
   #app {
-    max-width: 58rem;
-  }
-
-  .grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .span-2 {
-    grid-column: 1 / -1;
+    max-width: 42rem;
   }
 }
 
@@ -159,28 +208,14 @@ body {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 0.95rem 1rem 1rem;
+  padding: 0.85rem 0.95rem 0.95rem;
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
   animation: rise-in 0.8s ease-out both;
 }
 
-.panel:nth-child(2) {
-  animation-delay: 0.12s;
-}
-.panel:nth-child(3) {
-  animation-delay: 0.18s;
-}
-.panel:nth-child(4) {
-  animation-delay: 0.24s;
-}
-
-.panel h2 {
-  margin: 0 0 0.65rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #dce8e1;
-  letter-spacing: 0.03em;
+.panel-clock .hero-clock {
+  animation: none;
 }
 
 .weather-row {

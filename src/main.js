@@ -9,8 +9,23 @@ import { loadBusSelection } from "./busStore.js";
 import { loadWeatherPlace, districtById } from "./weatherStore.js";
 import { loadMtrSelection } from "./mtrStore.js";
 import { createAppSettings, openWeatherPlacePicker } from "./appSettings.js";
+import {
+  loadPanelOrder,
+  savePanelOrder,
+  enablePanelReorder,
+} from "./panelOrder.js";
 
 const app = document.querySelector("#app");
+
+const panelShell = (id, titleId, titleText, bodyId, extraClass = "") => `
+  <section class="panel ${extraClass}" data-panel-id="${id}" aria-labelledby="${titleId}">
+    <div class="panel-head">
+      <button type="button" class="drag-handle" data-drag-handle aria-label="拖曳調整${titleText}位置" title="上下拖曳排序">⋮⋮</button>
+      <h2 id="${titleId}">${titleText}</h2>
+    </div>
+    <div id="${bodyId}"></div>
+  </section>
+`;
 
 app.innerHTML = `
   <header class="brand-bar">
@@ -21,36 +36,41 @@ app.innerHTML = `
     <div class="status-pill" id="net-status" aria-live="polite">連線中</div>
   </header>
 
-  <section class="hero-clock" aria-label="時鐘">
-    <div class="clock-time" id="clock-time">--:--</div>
-    <div class="clock-date" id="clock-date">—</div>
-  </section>
+  <p class="reorder-hint muted">撳左邊 ⋮⋮ 上下拖曳可調順序（只存呢部機）</p>
 
-  <div class="grid">
-    <section class="panel" aria-labelledby="weather-title">
-      <h2 id="weather-title">天氣</h2>
-      <div id="weather-root"></div>
+  <div id="panel-stack" class="panel-stack">
+    <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
+      <div class="panel-head">
+        <button type="button" class="drag-handle" data-drag-handle aria-label="拖曳調整時鐘位置" title="上下拖曳排序">⋮⋮</button>
+        <h2 class="panel-head-label">時鐘</h2>
+      </div>
+      <div class="hero-clock">
+        <div class="clock-time" id="clock-time">--:--</div>
+        <div class="clock-date" id="clock-date">—</div>
+      </div>
     </section>
 
-    <section class="panel" aria-labelledby="bus-title">
-      <h2 id="bus-title">巴士</h2>
-      <div id="bus-root"></div>
-    </section>
-
-    <section class="panel" aria-labelledby="mtr-title">
-      <h2 id="mtr-title">港鐵</h2>
-      <div id="mtr-root"></div>
-    </section>
-
-    <section class="panel span-2" aria-labelledby="radio-title">
-      <h2 id="radio-title">電台</h2>
-      <div id="radio-root"></div>
-    </section>
+    ${panelShell("weather", "weather-title", "天氣", "weather-root")}
+    ${panelShell("bus", "bus-title", "巴士", "bus-root")}
+    ${panelShell("mtr", "mtr-title", "港鐵", "mtr-root")}
+    ${panelShell("radio", "radio-title", "電台", "radio-root")}
   </div>
 
-  <p class="footer-note">公開資料：天文台 · 九巴 ETA · 港鐵 Next Train · RTHK（手動播放）· 設定只存本機</p>
+  <p class="footer-note">公開資料：天文台 · 九巴 ETA · 港鐵 Next Train · RTHK（手動播放）· 設定／排序只存本機</p>
   <div id="settings-overlay" class="settings-overlay" hidden></div>
 `;
+
+const netStatus = document.querySelector("#net-status");
+const setNet = (text) => {
+  netStatus.textContent = text;
+};
+
+const stack = document.querySelector("#panel-stack");
+const reorder = enablePanelReorder(stack, {
+  onReorder: () => setNet("版面順序已更新（本機）"),
+});
+reorder.applyOrder(loadPanelOrder());
+savePanelOrder(loadPanelOrder());
 
 startClock({
   timeEl: document.querySelector("#clock-time"),
@@ -58,11 +78,6 @@ startClock({
   locale: config.locale,
   timeZone: config.timeZone,
 });
-
-const netStatus = document.querySelector("#net-status");
-const setNet = (text) => {
-  netStatus.textContent = text;
-};
 
 const overlay = document.querySelector("#settings-overlay");
 

@@ -14,8 +14,7 @@ export const config = {
   },
 
   /**
-   * Radio: RTHK official HLS + Commercial Radio best-effort.
-   * CR streams are geo/token gated — player tries urls then degrades with homepage link.
+   * Official RTHK live HLS URLs (from rthk.hk channel pages).
    * Requires user gesture to play.
    */
   radio: {
@@ -39,24 +38,6 @@ export const config = {
         id: "rthk5",
         name: "港台第五台",
         url: "https://rthkradio5-live.akamaized.net/hls/live/2040081/radio5/master.m3u8",
-      },
-      {
-        id: "cr881",
-        name: "雷霆881",
-        homepage: "https://www.881903.com/",
-        urls: [
-          "https://d2agljdoug3z0j.cloudfront.net/radio-HTTP/cr1-hd.3gp/playlist.m3u8",
-          "https://stream-redirect.hktoolbar.com/radio-HTTP/cr1-hd.3gp/playlist.m3u8",
-        ],
-      },
-      {
-        id: "cr903",
-        name: "叱咤903",
-        homepage: "https://www.881903.com/",
-        urls: [
-          "https://d2agljdoug3z0j.cloudfront.net/radio-HTTP/cr2-hd.3gp/playlist.m3u8",
-          "https://stream-redirect.hktoolbar.com/radio-HTTP/cr2-hd.3gp/playlist.m3u8",
-        ],
       },
     ],
   },
