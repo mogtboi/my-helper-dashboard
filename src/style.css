@@ -224,12 +224,42 @@ body {
 
 .panel {
   background: var(--panel);
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   padding: 0.85rem 0.95rem 0.95rem;
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
   animation: rise-in 0.8s ease-out both;
+}
+
+/* Semantic card edges — fixed per panel, not driven by user accent */
+.panel[data-panel-id="clock"] {
+  border-color: rgba(210, 220, 215, 0.42);
+}
+
+.panel[data-panel-id="weather"] {
+  border-color: #4a9fd8;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(74, 159, 216, 0.18);
+}
+
+.panel[data-panel-id="holiday"] {
+  border-color: #d4a15a;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(212, 161, 90, 0.18);
+}
+
+.panel[data-panel-id="bus"] {
+  border-color: #e07070;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(224, 112, 112, 0.18);
+}
+
+.panel[data-panel-id="mtr"] {
+  border-color: #45b06c;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(69, 176, 108, 0.18);
+}
+
+.panel[data-panel-id="radio"] {
+  border-color: #9b7ed9;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(155, 126, 217, 0.18);
 }
 
 .panel-clock .hero-clock {
