@@ -113,14 +113,32 @@ export async function fetchMtrSchedule(line, sta) {
   const json = await res.json();
   const key = `${line}-${sta}`;
   const block = json?.data?.[key];
+
+  const rawMsg =
+    json?.error?.errorMsg ||
+    (json?.message && json.message !== "successful" ? json.message : "") ||
+    "";
+  const reason = String(rawMsg || "").trim();
+
   if (!block) {
-    const msg = json?.message || json?.status || "無班次資料";
-    throw new Error(String(msg));
+    // No schedule block — often disabled line / no service; surface API message if any
+    return {
+      up: [],
+      down: [],
+      currTime: json?.curr_time || json?.sys_time || "",
+      status: json?.status,
+      isdelay: json?.isdelay,
+      reason: reason || null,
+    };
   }
+
   return {
     up: Array.isArray(block.UP) ? block.UP : [],
     down: Array.isArray(block.DOWN) ? block.DOWN : [],
     currTime: block.curr_time || json.curr_time,
+    status: json?.status,
+    isdelay: json?.isdelay,
+    reason: reason || null,
   };
 }
 

@@ -2,9 +2,17 @@ import { fetchMtrSchedule, destLabel } from "./mtrApi.js";
 import { MTR_LINES, lineByCode, stationOnLine } from "./mtrLines.js";
 import { saveMtrSelection } from "./mtrStore.js";
 
-function formatRows(rows, limit = 4) {
+function formatNoEta(reason) {
+  const r = (reason || "").trim();
+  if (r) {
+    return `<p class="muted">暫時冇班次</p><p class="eta-reason">${r}</p>`;
+  }
+  return `<p class="muted">暫時冇班次</p>`;
+}
+
+function formatRows(rows, limit = 4, reason = "") {
   const valid = (rows || []).filter((r) => r && r.valid !== "N").slice(0, limit);
-  if (!valid.length) return `<p class="muted">暫無班次</p>`;
+  if (!valid.length) return formatNoEta(reason);
   return `<ul class="eta-list">${valid
     .map((r) => {
       const mins = r.ttnt === "0" || r.ttnt === 0 ? "即將到達" : `${r.ttnt} 分鐘`;
@@ -200,11 +208,11 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       const staMeta = line?.stations.find((s) => s.sta === browse.station);
       const dirLabel = browse.dir === "UP" ? line?.upLabel : line?.downLabel;
       try {
-        const { up, down } = await fetchMtrSchedule(browse.line, browse.station);
+        const { up, down, reason } = await fetchMtrSchedule(browse.line, browse.station);
         const rows = browse.dir === "UP" ? up : down;
         lastHtml = `
           <div class="eta-dir">${line?.nameTc} · ${staMeta?.nameTc || browse.station} · ${dirLabel}</div>
-          ${formatRows(rows)}
+          ${formatRows(rows, 4, reason)}
         `;
         body.innerHTML = lastHtml;
         onStatus?.("港鐵已更新");
@@ -221,14 +229,16 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       return;
     }
     try {
-      const { up, down } = await fetchMtrSchedule(station.line, station.sta);
+      const { up, down, reason } = await fetchMtrSchedule(station.line, station.sta);
       const line = lineByCode(station.line);
+      const upHas = (up || []).some((r) => r && r.valid !== "N");
+      const downHas = (down || []).some((r) => r && r.valid !== "N");
       lastHtml = `
         <div class="eta-dir">${station.lineTc || station.line} · ${station.nameTc} · ${line?.upLabel || "上行"}</div>
-        ${formatRows(up)}
+        ${formatRows(up, 4, !upHas ? reason : "")}
         <div style="height:0.55rem"></div>
         <div class="eta-dir">${station.lineTc || station.line} · ${station.nameTc} · ${line?.downLabel || "下行"}</div>
-        ${formatRows(down)}
+        ${formatRows(down, 4, !downHas ? (upHas ? reason : "") : "")}
       `;
       body.innerHTML = lastHtml;
       onStatus?.("港鐵已更新");

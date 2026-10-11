@@ -28,18 +28,38 @@ function formatEtaItems(items) {
     .join("");
 }
 
+function formatNoEta(reason) {
+  const r = (reason || "").trim();
+  if (r) {
+    return `<p class="muted">暫時冇班次</p><p class="eta-reason">${r}</p>`;
+  }
+  return `<p class="muted">暫時冇班次</p>`;
+}
+
+/** Returns { items, reason } — reason only from API remarks when no ETAs. */
 async function loadEtaRows(stopId, route, serviceType) {
   const rows = await fetchEta(stopId, route, serviceType);
   const now = Date.now();
-  return rows
+  const items = rows
+    .filter((r) => r.eta)
     .map((r) => ({
       dest: r.dest_tc,
       eta: r.eta,
       mins: minsUntil(r.eta, now),
       rmk: r.rmk_tc,
     }))
-    .filter((r) => r.eta)
     .slice(0, 3);
+  const remarks = [
+    ...new Set(
+      rows
+        .map((r) => (r.rmk_tc || r.rmk_en || "").trim())
+        .filter(Boolean)
+    ),
+  ];
+  return {
+    items,
+    reason: items.length ? "" : remarks.join("；"),
+  };
 }
 
 /** Flatten stops into per-route option list (stop + direction). */
@@ -375,13 +395,13 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
 
     if ((mode === "other" || mode === "search") && browsePick) {
       try {
-        const items = await loadEtaRows(
+        const { items, reason } = await loadEtaRows(
           browsePick.stopId,
           browsePick.route,
           browsePick.serviceType || "1"
         );
         if (!items.length) {
-          lastHtml = `<div class="eta-dir">${browsePick.route} · ${browsePick.label}</div><p class="muted">暫無班次</p>`;
+          lastHtml = `<div class="eta-dir">${browsePick.route} · ${browsePick.label}</div>${formatNoEta(reason)}`;
         } else {
           lastHtml = `<div class="eta-dir">${browsePick.route} · ${browsePick.label}</div><ul class="eta-list">${formatEtaItems(items)}</ul>`;
         }
@@ -409,9 +429,9 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
     const { stop, dir } = opt;
     try {
       const serviceType = dir.serviceType || stop.serviceType || "1";
-      const items = await loadEtaRows(dir.stopId, stop.route, serviceType);
+      const { items, reason } = await loadEtaRows(dir.stopId, stop.route, serviceType);
       if (!items.length) {
-        lastHtml = `<div class="eta-dir">${stop.route} · ${opt.label}</div><p class="muted">暫無班次</p>`;
+        lastHtml = `<div class="eta-dir">${stop.route} · ${opt.label}</div>${formatNoEta(reason)}`;
       } else {
         lastHtml = `<div class="eta-dir">${stop.route} · ${opt.label}</div><ul class="eta-list">${formatEtaItems(items)}</ul>`;
       }

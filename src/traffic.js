@@ -13,6 +13,174 @@ const STATUS_TC = {
   3: "更新",
 };
 
+const REGIONS = [
+  { id: "all", nameTc: "全部" },
+  { id: "nt", nameTc: "新界" },
+  { id: "kln", nameTc: "九龍" },
+  { id: "hki", nameTc: "港島" },
+  { id: "other", nameTc: "其他／跨區" },
+];
+
+/** Place-name cues for bucketing when TD district fields are empty. */
+const REGION_KEYWORDS = {
+  hki: [
+    "港島",
+    "香港島",
+    "中西區",
+    "灣仔區",
+    "東區",
+    "南區",
+    "中環",
+    "金鐘",
+    "上環",
+    "西環",
+    "堅尼地城",
+    "西營盤",
+    "香港大學",
+    "灣仔",
+    "銅鑼灣",
+    "跑馬地",
+    "天后",
+    "炮台山",
+    "北角",
+    "鰂魚涌",
+    "太古",
+    "西灣河",
+    "筲箕灣",
+    "杏花邨",
+    "柴灣",
+    "小西灣",
+    "香港仔",
+    "黃竹坑",
+    "海洋公園",
+    "海怡",
+    "利東",
+    "鴨脷洲",
+    "赤柱",
+    "淺水灣",
+    "薄扶林",
+    "數碼港",
+    "會展",
+    "添馬",
+  ],
+  kln: [
+    "九龍",
+    "九龍西",
+    "九龍東",
+    "九龍城",
+    "九龍塘",
+    "九龍灣",
+    "西九",
+    "西九龍",
+    "西九文化區",
+    "中九龍繞道",
+    "油尖旺",
+    "尖沙咀",
+    "尖東",
+    "佐敦",
+    "油麻地",
+    "旺角",
+    "太子",
+    "深水埗",
+    "長沙灣",
+    "荔枝角",
+    "美孚",
+    "石硤尾",
+    "紅磡",
+    "土瓜灣",
+    "馬頭圍",
+    "何文田",
+    "黃埔",
+    "黃大仙",
+    "鑽石山",
+    "樂富",
+    "彩虹",
+    "慈雲山",
+    "觀塘",
+    "牛頭角",
+    "藍田",
+    "油塘",
+    "秀茂坪",
+    "啟德",
+    "宋皇臺",
+    "柯士甸",
+    "南昌",
+    "奧運",
+    "大角咀",
+    "長沙灣道",
+    "彌敦道",
+    "博物館道",
+    "文化道",
+  ],
+  nt: [
+    "新界",
+    "新界南",
+    "新界西",
+    "新界東",
+    "荃灣",
+    "葵涌",
+    "葵芳",
+    "葵青",
+    "青衣",
+    "荃青",
+    "汀九",
+    "屯門",
+    "元朗",
+    "天水圍",
+    "大埔",
+    "大埔墟",
+    "太和",
+    "粉嶺",
+    "上水",
+    "北區",
+    "沙田",
+    "大圍",
+    "火炭",
+    "馬場",
+    "馬鞍山",
+    "西貢",
+    "將軍澳",
+    "坑口",
+    "寶琳",
+    "康城",
+    "調景嶺",
+    "東涌",
+    "大嶼山",
+    "機場",
+    "青嶼",
+    "青馬",
+    "大欖",
+    "落馬洲",
+    "羅湖",
+    "離島",
+    "屯門公路",
+    "元朗公路",
+    "粉嶺公路",
+    "吐露港",
+    "城門隧道",
+    "大老山",
+    "尖山隧道",
+    "沙田嶺",
+    "獅子山",
+    "錦上路",
+    "朗屏",
+    "兆康",
+    "欣澳",
+    "迪士尼",
+    "博覽館",
+    "大學",
+    "顯徑",
+    "第一城",
+    "石門",
+    "恆安",
+    "烏溪沙",
+    "馬會道",
+    "沙田圍路",
+    "葵涌道",
+    "大連排道",
+  ],
+};
+
 function textOf(el, names) {
   if (!el) return "";
   for (const name of names) {
@@ -27,7 +195,17 @@ function headingFromBody(body) {
   const compact = (body || "").replace(/\s+/g, " ").trim();
   if (!compact) return "特別交通消息";
   const cut = compact.split(/[。！？\n]/)[0] || compact;
-  return cut.length > 42 ? `${cut.slice(0, 42)}…` : cut;
+  return cut.length > 48 ? `${cut.slice(0, 48)}…` : cut;
+}
+
+function regionFromText(text) {
+  const hay = String(text || "");
+  const hits = [];
+  for (const [id, words] of Object.entries(REGION_KEYWORDS)) {
+    if (words.some((w) => hay.includes(w))) hits.push(id);
+  }
+  if (hits.length === 1) return hits[0];
+  return "other"; // none or multiple → 其他／跨區
 }
 
 function parseDataOneXml(xmlText) {
@@ -41,6 +219,7 @@ function parseDataOneXml(xmlText) {
       const body = textOf(msg, ["ChinText", "ChinShort"]) || textOf(msg, ["EngText"]);
       const short = textOf(msg, ["ChinShort"]) || body;
       const time = textOf(msg, ["ReferenceDate"]);
+      const region = regionFromText(`${short}\n${body}`);
       return {
         id: id || short.slice(0, 24),
         title: headingFromBody(short),
@@ -48,6 +227,7 @@ function parseDataOneXml(xmlText) {
         location: "",
         status: STATUS_TC[statusCode] || (statusCode ? `狀態 ${statusCode}` : ""),
         time,
+        region,
         source: "data.one.gov.hk",
       };
     })
@@ -61,6 +241,7 @@ function parseTdXml(xmlText) {
   return messages
     .map((msg) => {
       const location = textOf(msg, ["LOCATION_CN", "LOCATION_EN"]);
+      const district = textOf(msg, ["DISTRICT_CN", "DISTRICT_EN"]);
       const heading = textOf(msg, ["INCIDENT_HEADING_CN", "INCIDENT_HEADING_EN"]);
       const detailType = textOf(msg, ["INCIDENT_DETAIL_CN", "INCIDENT_DETAIL_EN"]);
       const body = textOf(msg, ["CONTENT_CN", "CONTENT_EN"]);
@@ -68,13 +249,15 @@ function parseTdXml(xmlText) {
       const time = textOf(msg, ["ANNOUNCEMENT_DATE"]);
       const id = textOf(msg, ["INCIDENT_NUMBER", "ID"]);
       const titleBits = [heading, detailType, location].filter(Boolean);
+      const region = regionFromText(`${district} ${location} ${heading} ${body}`);
       return {
         id: id || location || heading,
         title: titleBits.join(" · ") || headingFromBody(body),
         detail: body,
-        location,
+        location: location || district,
         status,
         time,
+        region,
         source: "td.gov.hk",
       };
     })
@@ -95,9 +278,33 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function renderCards(list) {
+  if (!list.length) {
+    return `<p class="muted">呢個分類暫時冇消息。</p>`;
+  }
+  return `<div class="traffic-list">${list
+    .map(
+      (m) => `
+    <article class="traffic-card">
+      <header class="traffic-card-head">
+        <h3 class="traffic-card-title">${escapeHtml(m.title)}</h3>
+        ${m.status ? `<span class="traffic-status">${escapeHtml(m.status)}</span>` : ""}
+      </header>
+      ${m.location ? `<div class="traffic-loc">地點：${escapeHtml(m.location)}</div>` : ""}
+      <p class="traffic-body">${escapeHtml(m.detail)}</p>
+      <div class="traffic-meta muted">
+        ${m.time ? `時間：${escapeHtml(m.time)}` : "時間：—"}
+        · ${escapeHtml(REGIONS.find((r) => r.id === m.region)?.nameTc || "其他／跨區")}
+      </div>
+    </article>`
+    )
+    .join("")}</div>`;
+}
+
 export function createTraffic(root, { onStatus } = {}) {
   let timer = null;
   let last = null;
+  let activeRegion = "all";
 
   const paint = (items, err, meta = {}) => {
     if (err && !items?.length) {
@@ -113,22 +320,15 @@ export function createTraffic(root, { onStatus } = {}) {
     }
 
     const list = items || [];
-    const rows = list
-      .map(
-        (m) => `
-      <article class="traffic-card">
-        <header class="traffic-card-head">
-          <h3 class="traffic-card-title">${escapeHtml(m.title)}</h3>
-          ${m.status ? `<span class="traffic-status">${escapeHtml(m.status)}</span>` : ""}
-        </header>
-        ${m.location ? `<div class="traffic-loc">地點：${escapeHtml(m.location)}</div>` : ""}
-        <p class="traffic-body">${escapeHtml(m.detail)}</p>
-        <div class="traffic-meta muted">
-          ${m.time ? `時間：${escapeHtml(m.time)}` : "時間：—"}
-        </div>
-      </article>`
-      )
-      .join("");
+    const counts = Object.fromEntries(REGIONS.map((r) => [r.id, 0]));
+    counts.all = list.length;
+    for (const m of list) {
+      const id = REGIONS.some((r) => r.id === m.region) ? m.region : "other";
+      counts[id] = (counts[id] || 0) + 1;
+    }
+    if (!REGIONS.some((r) => r.id === activeRegion)) activeRegion = "all";
+    const filtered =
+      activeRegion === "all" ? list : list.filter((m) => (m.region || "other") === activeRegion);
 
     root.innerHTML = `
       <div class="traffic-toolbar">
@@ -138,11 +338,27 @@ export function createTraffic(root, { onStatus } = {}) {
         </p>
         <button type="button" class="ghost-btn" data-traffic-refresh>重新整理</button>
       </div>
-      ${list.length ? `<div class="traffic-list">${rows}</div>` : `<p class="muted">暫時冇事故／特別安排消息。</p>`}
+      <div class="traffic-region-tabs" role="tablist" aria-label="地區分類">
+        ${REGIONS.map(
+          (r) => `
+          <button type="button" class="traffic-region-tab" role="tab"
+            data-region="${r.id}" aria-selected="${activeRegion === r.id}">
+            ${r.nameTc}${r.id === "all" ? "" : ` ${counts[r.id] || 0}`}
+          </button>`
+        ).join("")}
+      </div>
+      ${list.length ? renderCards(filtered) : `<p class="muted">暫時冇事故／特別安排消息。</p>`}
       ${err ? `<p class="error">部分更新失敗，顯示上次資料</p>` : ""}
-      <p class="device-local-hint">運輸署特別交通消息 · 公開實時 XML（data.one.gov.hk／td.gov.hk）</p>
+      <p class="device-local-hint">運輸署特別交通消息 · 按內文地點歸入新界／九龍／港島；跨區或不清歸「其他／跨區」</p>
     `;
+
     root.querySelector("[data-traffic-refresh]")?.addEventListener("click", () => refresh());
+    root.querySelector(".traffic-region-tabs")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-region]");
+      if (!btn) return;
+      activeRegion = btn.dataset.region;
+      paint(list, err, meta);
+    });
   };
 
   const refresh = async () => {
