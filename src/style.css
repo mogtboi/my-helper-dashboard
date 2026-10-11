@@ -1168,3 +1168,88 @@ body.drawer-open {
   display: none !important;
 }
 
+
+
+.app-view[hidden] {
+  display: none !important;
+}
+
+.panel[data-panel-id="traffic"] {
+  border-color: #e0a060;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(224, 160, 96, 0.2);
+}
+
+.traffic-intro {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.traffic-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.traffic-summary {
+  margin: 0;
+  flex: 1;
+}
+
+.traffic-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.traffic-card {
+  padding: 0.7rem 0.75rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.traffic-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.traffic-card-title {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: #eef3f0;
+}
+
+.traffic-status {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(224, 160, 96, 0.45);
+  color: #f0d2a8;
+  background: rgba(224, 160, 96, 0.12);
+}
+
+.traffic-loc {
+  font-size: 0.82rem;
+  color: #d4a15a;
+  margin-bottom: 0.3rem;
+}
+
+.traffic-body {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--ink);
+}
+
+.traffic-meta {
+  margin-top: 0.45rem;
+  font-size: 0.75rem;
+}

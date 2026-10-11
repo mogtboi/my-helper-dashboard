@@ -1,6 +1,6 @@
 import {
   MODULE_CATALOG,
-  DRAWER_CATEGORIES,
+  SETTINGS_CATEGORIES,
   FONT_STEPS,
   ACCENT_OPTIONS,
   saveModuleEnabled,
@@ -14,15 +14,20 @@ const CAT_BLURBS = {
   港鐵: "下一班車 ETA 同車站設定",
   假期: "公眾假期倒數、今日是否假期、本月勞工假日數",
   外觀: "字體大小同主題色（只存呢部機）",
-  設定: "時鐘、電台，以及其他本機設定",
+  電台: "港台電台同埋時鐘主頁顯示",
 };
 
 const CAT_SETTINGS_FOCUS = {
   天氣: "weather",
   巴士: "bus",
   港鐵: "mtr",
-  設定: "bus",
 };
+
+const ROOT_ITEMS = [
+  { id: "home", nameTc: "主頁", blurb: "儀表板各資訊面板" },
+  { id: "traffic", nameTc: "交通消息", blurb: "特別交通消息／封路／改道" },
+  { id: "settings", nameTc: "設定", blurb: "加到主頁、天氣／巴士／港鐵等" },
+];
 
 function toggleRow(mod, on) {
   return `
@@ -48,8 +53,7 @@ function toggleRow(mod, on) {
 }
 
 /**
- * Left drawer (~2/3 width): category list → category page with toggles + settings.
- * Edge swipe from left or menu button. Swipes ignore interactive controls.
+ * Left drawer (~67vw): 主頁 / 交通消息 / 設定 → nested category pages.
  */
 export function createDrawer({
   root,
@@ -60,16 +64,18 @@ export function createDrawer({
   setAppearance,
   onAppearanceChange,
   onOpenSettings,
+  onNavigateHome,
+  onNavigateTraffic,
 }) {
   root.innerHTML = `
     <div class="drawer-backdrop" data-drawer-close hidden></div>
     <aside class="drawer-panel" id="drawer-panel" aria-hidden="true">
       <header class="drawer-head">
-        <button type="button" class="icon-btn drawer-back" data-drawer-back hidden aria-label="返回分類">‹</button>
+        <button type="button" class="icon-btn drawer-back" data-drawer-back hidden aria-label="返回">‹</button>
         <h2 id="drawer-title">選單</h2>
         <button type="button" class="icon-btn" data-drawer-close aria-label="關閉">✕</button>
       </header>
-      <p class="drawer-note" id="drawer-note">揀分類進入設定；開關可將資訊加到／移離主頁。</p>
+      <p class="drawer-note" id="drawer-note">主頁、交通消息，或者入設定管理主頁模組。</p>
       <div class="drawer-body" id="drawer-body"></div>
     </aside>
   `;
@@ -82,8 +88,8 @@ export function createDrawer({
   const backBtn = root.querySelector("[data-drawer-back]");
 
   let open = false;
-  /** @type {string | null} */
-  let activeCat = null;
+  /** @type {'root' | 'settings' | string} */
+  let screen = "root";
 
   const setModEnabled = (id, nextOn) => {
     const enabled = { ...getEnabled(), [id]: nextOn };
@@ -92,21 +98,47 @@ export function createDrawer({
     onEnabledChange?.(enabled);
   };
 
-  const renderHome = () => {
+  const renderRoot = () => {
     titleEl.textContent = "選單";
-    noteEl.textContent = "揀分類進入設定；開關可將資訊加到／移離主頁。";
+    noteEl.textContent = "主頁、交通消息，或者入設定管理主頁模組。";
     backBtn.hidden = true;
     body.innerHTML = `
-      <nav class="drawer-cat-list" aria-label="分類">
-        ${DRAWER_CATEGORIES.map(
-          (cat) => `
-          <button type="button" class="drawer-cat-link" data-open-cat="${cat}">
-            <span class="drawer-cat-link-title">${cat}</span>
-            <span class="drawer-cat-link-blurb">${CAT_BLURBS[cat] || ""}</span>
+      <nav class="drawer-cat-list" aria-label="選單">
+        ${ROOT_ITEMS.map(
+          (item) => `
+          <button type="button" class="drawer-cat-link" data-root-nav="${item.id}">
+            <span class="drawer-cat-link-title">${item.nameTc}</span>
+            <span class="drawer-cat-link-blurb">${item.blurb}</span>
             <span class="drawer-cat-link-chevron" aria-hidden="true">›</span>
           </button>`
         ).join("")}
       </nav>
+    `;
+  };
+
+  const renderSettingsHub = () => {
+    const enabled = getEnabled();
+    titleEl.textContent = "設定";
+    noteEl.textContent = "開關「加到主頁」，或者進入分類設定。全部只存呢部機。";
+    backBtn.hidden = false;
+    body.innerHTML = `
+      <section class="drawer-page">
+        <h3 class="drawer-page-h">加到主頁</h3>
+        <div class="drawer-toggle-list">
+          ${MODULE_CATALOG.map((m) => toggleRow(m, enabled[m.id] !== false)).join("")}
+        </div>
+        <h3 class="drawer-page-h">分類設定</h3>
+        <nav class="drawer-cat-list" aria-label="設定分類">
+          ${SETTINGS_CATEGORIES.map(
+            (cat) => `
+            <button type="button" class="drawer-cat-link" data-open-cat="${cat}">
+              <span class="drawer-cat-link-title">${cat}</span>
+              <span class="drawer-cat-link-blurb">${CAT_BLURBS[cat] || ""}</span>
+              <span class="drawer-cat-link-chevron" aria-hidden="true">›</span>
+            </button>`
+          ).join("")}
+        </nav>
+      </section>
     `;
   };
 
@@ -151,9 +183,7 @@ export function createDrawer({
           ? "設定巴士站／路線…"
           : cat === "港鐵"
             ? "設定港鐵站／綫…"
-            : cat === "設定"
-              ? "巴士／港鐵／天氣地區設定…"
-              : null;
+            : null;
 
     body.innerHTML = `
       <section class="drawer-page">
@@ -171,6 +201,11 @@ export function createDrawer({
             : ""
         }
         ${
+          cat === "電台"
+            ? `<p class="drawer-page-info muted">港台電台串流同主頁時鐘顯示；設定只存呢部機。</p>`
+            : ""
+        }
+        ${
           settingsLabel && settingsFocus
             ? `<button type="button" class="tab drawer-settings-btn" data-open-settings data-settings-focus="${settingsFocus}">${settingsLabel}</button>`
             : ""
@@ -180,8 +215,9 @@ export function createDrawer({
   };
 
   const render = () => {
-    if (activeCat) renderCategory(activeCat);
-    else renderHome();
+    if (screen === "root") renderRoot();
+    else if (screen === "settings") renderSettingsHub();
+    else renderCategory(screen);
   };
 
   const setOpen = (next) => {
@@ -191,28 +227,35 @@ export function createDrawer({
     backdrop.hidden = !open;
     document.body.classList.toggle("drawer-open", open);
     if (!open) {
-      activeCat = null;
+      screen = "root";
       render();
     }
   };
 
   const toggle = () => setOpen(!open);
 
-  const goCat = (cat) => {
-    activeCat = cat;
-    render();
+  const goBack = () => {
+    if (screen !== "root" && screen !== "settings") {
+      screen = "settings";
+      render();
+      return;
+    }
+    if (screen === "settings") {
+      screen = "root";
+      render();
+      return;
+    }
+    setOpen(false);
   };
 
-  const goHome = () => {
-    activeCat = null;
-    render();
-  };
-
-  // Capture-phase handlers so toggles win over swipe/drag
   panel.addEventListener(
     "pointerdown",
     (e) => {
-      if (e.target.closest("[data-mod-switch], .drawer-switch, .drawer-toggle, .drawer-cat-link, .place-chip, .drawer-settings-btn, .icon-btn")) {
+      if (
+        e.target.closest(
+          "[data-mod-switch], .drawer-switch, .drawer-toggle, .drawer-cat-link, .place-chip, .drawer-settings-btn, .icon-btn"
+        )
+      ) {
         e.stopPropagation();
       }
     },
@@ -225,13 +268,34 @@ export function createDrawer({
       return;
     }
     if (e.target.closest("[data-drawer-back]")) {
-      goHome();
+      goBack();
+      return;
+    }
+
+    const rootNav = e.target.closest("[data-root-nav]");
+    if (rootNav) {
+      const id = rootNav.dataset.rootNav;
+      if (id === "home") {
+        setOpen(false);
+        onNavigateHome?.();
+        return;
+      }
+      if (id === "traffic") {
+        setOpen(false);
+        onNavigateTraffic?.();
+        return;
+      }
+      if (id === "settings") {
+        screen = "settings";
+        render();
+      }
       return;
     }
 
     const catBtn = e.target.closest("[data-open-cat]");
     if (catBtn) {
-      goCat(catBtn.dataset.openCat);
+      screen = catBtn.dataset.openCat;
+      render();
       return;
     }
 
@@ -274,7 +338,6 @@ export function createDrawer({
     }
   });
 
-  // Edge / close swipe — ignore if gesture began on a control
   let touchStartX = null;
   let touchStartY = null;
   let touchOnControl = false;
@@ -315,8 +378,7 @@ export function createDrawer({
         return;
       }
       if (open && dx < -70 && dy < 50) {
-        // Only close if swipe began near the drawer edge / outside interactive area
-        if (activeCat && startX < 48) goHome();
+        if (screen !== "root" && startX < 48) goBack();
         else setOpen(false);
       }
     },
@@ -329,9 +391,10 @@ export function createDrawer({
     close: () => setOpen(false),
     toggle,
     render,
-    openCategory: (cat) => {
+    openSettingsHub: () => {
       setOpen(true);
-      goCat(cat);
+      screen = "settings";
+      render();
     },
   };
 }

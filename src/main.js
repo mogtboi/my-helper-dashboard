@@ -6,6 +6,7 @@ import { createBus } from "./bus.js";
 import { createMtr } from "./mtr.js";
 import { createHoliday } from "./holiday.js";
 import { createRadio } from "./radio.js";
+import { createTraffic } from "./traffic.js";
 import { loadBusSelection } from "./busStore.js";
 import { loadWeatherPlace, districtById } from "./weatherStore.js";
 import { loadMtrSelection } from "./mtrStore.js";
@@ -17,9 +18,7 @@ import {
 } from "./panelOrder.js";
 import {
   loadModuleEnabled,
-  saveModuleEnabled,
   loadAppearance,
-  saveAppearance,
   applyAppearance,
 } from "./prefsStore.js";
 import { createDrawer } from "./drawer.js";
@@ -41,33 +40,46 @@ app.innerHTML = `
     <button type="button" class="menu-btn" id="menu-btn" aria-label="開啟選單">☰</button>
     <div class="brand">
       my helper
-      <small>個人儀表板</small>
+      <small id="brand-sub">個人儀表板</small>
     </div>
     <div class="status-pill" id="net-status" aria-live="polite">連線中</div>
   </header>
 
-  <p class="reorder-hint muted">☰ 或左邊滑入選單；⋮⋮ 可拖曳排序（只存呢部機）</p>
+  <div id="view-home" class="app-view">
+    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
 
-  <div id="panel-stack" class="panel-stack">
-    <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
-      <div class="panel-head">
-        <button type="button" class="drag-handle" data-drag-handle aria-label="拖曳調整時鐘位置" title="上下拖曳排序">⋮⋮</button>
-        <h2 class="panel-head-label">時鐘</h2>
-      </div>
-      <div class="hero-clock">
-        <div class="clock-time" id="clock-time">--:--</div>
-        <div class="clock-date" id="clock-date">—</div>
-      </div>
-    </section>
+    <div id="panel-stack" class="panel-stack">
+      <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
+        <div class="panel-head">
+          <button type="button" class="drag-handle" data-drag-handle aria-label="拖曳調整時鐘位置" title="上下拖曳排序">⋮⋮</button>
+          <h2 class="panel-head-label">時鐘</h2>
+        </div>
+        <div class="hero-clock">
+          <div class="clock-time" id="clock-time">--:--</div>
+          <div class="clock-date" id="clock-date">—</div>
+        </div>
+      </section>
 
-    ${panelShell("weather", "weather-title", "天氣", "weather-root")}
-    ${panelShell("holiday", "holiday-title", "公眾假期", "holiday-root")}
-    ${panelShell("bus", "bus-title", "巴士", "bus-root")}
-    ${panelShell("mtr", "mtr-title", "港鐵", "mtr-root")}
-    ${panelShell("radio", "radio-title", "電台", "radio-root")}
+      ${panelShell("weather", "weather-title", "天氣", "weather-root")}
+      ${panelShell("holiday", "holiday-title", "公眾假期", "holiday-root")}
+      ${panelShell("bus", "bus-title", "巴士", "bus-root")}
+      ${panelShell("mtr", "mtr-title", "港鐵", "mtr-root")}
+      ${panelShell("radio", "radio-title", "電台", "radio-root")}
+    </div>
+
+    <p class="footer-note">公開資料：天文台 · AQHI · 九巴 · 港鐵 · 1823 假期 · 運輸署交通消息 · RTHK · 設定只存本機</p>
   </div>
 
-  <p class="footer-note">公開資料：天文台 · AQHI · 九巴 · 港鐵 · 1823 假期 · RTHK · 設定只存本機</p>
+  <div id="view-traffic" class="app-view" hidden>
+    <section class="panel traffic-page-panel" data-panel-id="traffic" aria-labelledby="traffic-title">
+      <div class="panel-head">
+        <h2 id="traffic-title">交通消息</h2>
+      </div>
+      <p class="muted traffic-intro">運輸署特別交通消息：封路、改道、大型活動等（唔係巴士／港鐵 ETA）。</p>
+      <div id="traffic-root"></div>
+    </section>
+  </div>
+
   <div id="drawer-root"></div>
   <div id="settings-overlay" class="settings-overlay" hidden></div>
 `;
@@ -77,11 +89,22 @@ let appearance = loadAppearance();
 applyAppearance(appearance);
 
 const netStatus = document.querySelector("#net-status");
+const brandSub = document.querySelector("#brand-sub");
 const setNet = (text) => {
   netStatus.textContent = text;
 };
 
+const viewHome = document.querySelector("#view-home");
+const viewTraffic = document.querySelector("#view-traffic");
 const stack = document.querySelector("#panel-stack");
+
+const showView = (name) => {
+  const isTraffic = name === "traffic";
+  viewHome.hidden = isTraffic;
+  viewTraffic.hidden = !isTraffic;
+  brandSub.textContent = isTraffic ? "特別交通消息" : "個人儀表板";
+  document.body.dataset.view = name;
+};
 
 const applyVisibility = () => {
   stack.querySelectorAll("[data-panel-id]").forEach((el) => {
@@ -147,6 +170,8 @@ const mtr = createMtr(
   }
 );
 
+const traffic = createTraffic(document.querySelector("#traffic-root"), { onStatus: setNet });
+
 const settings = createAppSettings({
   overlayRoot: overlay,
   getBusSelection: () => busSelection,
@@ -191,6 +216,11 @@ const drawer = createDrawer({
   },
   onAppearanceChange: () => setNet("外觀已更新（本機）"),
   onOpenSettings: (focus = "bus") => settings.open(focus),
+  onNavigateHome: () => showView("home"),
+  onNavigateTraffic: () => {
+    showView("traffic");
+    traffic.refresh();
+  },
 });
 
 document.querySelector("#menu-btn").addEventListener("click", () => drawer.toggle());
@@ -202,6 +232,8 @@ const boot = () => {
   bus.start(busSelection);
   mtr.start(mtrSelection);
   createRadio(document.querySelector("#radio-root"), config.radio);
+  traffic.start();
+  showView("home");
 };
 
 if (!weatherPlace) {

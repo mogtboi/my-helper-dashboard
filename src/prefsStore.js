@@ -4,15 +4,19 @@ export const APPEARANCE_KEY = "my-helper.appearance.v1";
 
 /** All home modules that can be toggled. */
 export const MODULE_CATALOG = [
-  { id: "clock", nameTc: "時鐘", category: "設定" },
+  { id: "clock", nameTc: "時鐘", category: "電台" },
   { id: "weather", nameTc: "天氣（含警示／UV／空氣／日出）", category: "天氣" },
   { id: "bus", nameTc: "巴士 ETA", category: "巴士" },
   { id: "mtr", nameTc: "港鐵下一班車", category: "港鐵" },
   { id: "holiday", nameTc: "公眾假期倒數", category: "假期" },
-  { id: "radio", nameTc: "電台（港台）", category: "設定" },
+  { id: "radio", nameTc: "電台（港台）", category: "電台" },
 ];
 
-export const DRAWER_CATEGORIES = ["天氣", "巴士", "港鐵", "假期", "外觀", "設定"];
+/** Nested under sidebar「設定」 */
+export const SETTINGS_CATEGORIES = ["天氣", "巴士", "港鐵", "假期", "外觀", "電台"];
+
+/** @deprecated use SETTINGS_CATEGORIES — kept for any older imports */
+export const DRAWER_CATEGORIES = SETTINGS_CATEGORIES;
 
 export const DEFAULT_ENABLED = {
   clock: true,
