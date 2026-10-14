@@ -1329,3 +1329,343 @@ body.drawer-open {
   margin-top: 0.45rem;
   font-size: 0.75rem;
 }
+
+
+/* —— 買車成本 TCO simulator —— */
+.panel[data-panel-id="tco"] {
+  border-color: #5aa7d6;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(90, 167, 214, 0.2);
+  padding: 0.75rem;
+}
+
+.tco-page {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.tco-hero {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.tco-title {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.tco-sub {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.tco-presets,
+.tco-mode-tabs,
+.tco-type-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tco-chip,
+.tco-mode-tab,
+.tco-type-tab,
+.tco-loan-tab,
+.tco-tax-tab {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tco-chip:active,
+.tco-mode-tab[aria-selected="true"],
+.tco-type-tab[aria-selected="true"],
+.tco-loan-tab[aria-selected="true"],
+.tco-tax-tab[aria-selected="true"] {
+  background: rgba(90, 167, 214, 0.2);
+  border-color: rgba(90, 167, 214, 0.55);
+  color: #cfe9f8;
+}
+
+.tco-modebar {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.65rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tco-horizon {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.tco-horizon input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.tco-kpi-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+@media (min-width: 560px) {
+  .tco-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.tco-kpi {
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  border-left-width: 4px;
+  min-width: 0;
+}
+
+.tco-kpi-a { border-left-color: #5aa7d6; }
+.tco-kpi-b { border-left-color: #5fbf95; }
+.tco-kpi-c { border-left-color: #d4a15a; }
+.tco-kpi-d { border-left-color: #9b7ed9; }
+
+.tco-kpi-label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.tco-kpi-main {
+  display: block;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.tco-kpi-verdict {
+  font-size: 1.15rem;
+}
+
+.tco-kpi-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+
+.tco-kpi-subs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.72rem;
+}
+
+.tco-kpi-subs b {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.tco-kpi-note {
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.tco-chart-wrap {
+  padding: 0.65rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+}
+
+.tco-chart-wrap canvas {
+  width: 100% !important;
+  max-width: 100%;
+  height: 220px !important;
+}
+
+.tco-sec-h {
+  margin: 0 0 0.45rem;
+  font-size: 0.9rem;
+}
+
+.tco-section {
+  border: 1px solid var(--line);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.15rem 0.7rem 0.7rem;
+}
+
+.tco-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.65rem 0.15rem;
+  list-style: none;
+}
+
+.tco-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tco-sec-body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.tco-field {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+}
+
+.tco-field-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.tco-field-top b {
+  font-variant-numeric: tabular-nums;
+  color: #cfe9f8;
+  overflow-wrap: anywhere;
+}
+
+.tco-field input[type="number"],
+.tco-fees input,
+.tco-helper input,
+.tco-inline-num input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--line);
+  background: #0d1114;
+  color: var(--ink);
+}
+
+.tco-field input[type="range"],
+.tco-horizon input[type="range"] {
+  width: 100%;
+  accent-color: #5aa7d6;
+}
+
+.tco-field input[type="range"].emerald,
+.tco-field input.emerald {
+  accent-color: #5fbf95;
+}
+
+.tco-field input[type="range"].amber {
+  accent-color: #d4a15a;
+}
+
+.tco-mini-grid,
+.tco-fees,
+.tco-helper-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  font-size: 0.78rem;
+}
+
+.tco-fees label,
+.tco-helper label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.tco-loan-box,
+.tco-energy-box,
+.tco-ice-box,
+.tco-tax-details {
+  padding: 0.65rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.18);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tco-inline-num {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tco-inline-num input {
+  width: 5.5rem;
+}
+
+.tco-tax-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.tco-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.tco-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.tco-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  min-width: 18rem;
+}
+
+.tco-table th,
+.tco-table td {
+  padding: 0.4rem 0.35rem;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.tco-table th:first-child,
+.tco-table td:first-child {
+  text-align: left;
+}

@@ -7,6 +7,7 @@ import { createMtr } from "./mtr.js";
 import { createHoliday } from "./holiday.js";
 import { createRadio } from "./radio.js";
 import { createTraffic } from "./traffic.js";
+import { createTco } from "./tco.js";
 import { loadBusSelection } from "./busStore.js";
 import { loadWeatherPlace, districtById } from "./weatherStore.js";
 import { loadMtrSelection } from "./mtrStore.js";
@@ -46,7 +47,7 @@ app.innerHTML = `
   </header>
 
   <div id="view-home" class="app-view">
-    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
+    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／買車成本／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
 
     <div id="panel-stack" class="panel-stack">
       <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
@@ -80,6 +81,12 @@ app.innerHTML = `
     </section>
   </div>
 
+  <div id="view-tco" class="app-view" hidden>
+    <section class="panel tco-page-panel" data-panel-id="tco" aria-label="買車成本">
+      <div id="tco-root"></div>
+    </section>
+  </div>
+
   <div id="drawer-root"></div>
   <div id="settings-overlay" class="settings-overlay" hidden></div>
 `;
@@ -96,13 +103,20 @@ const setNet = (text) => {
 
 const viewHome = document.querySelector("#view-home");
 const viewTraffic = document.querySelector("#view-traffic");
+const viewTco = document.querySelector("#view-tco");
 const stack = document.querySelector("#panel-stack");
 
+const VIEW_SUB = {
+  home: "個人儀表板",
+  traffic: "特別交通消息",
+  tco: "買車成本模擬",
+};
+
 const showView = (name) => {
-  const isTraffic = name === "traffic";
-  viewHome.hidden = isTraffic;
-  viewTraffic.hidden = !isTraffic;
-  brandSub.textContent = isTraffic ? "特別交通消息" : "個人儀表板";
+  viewHome.hidden = name !== "home";
+  viewTraffic.hidden = name !== "traffic";
+  viewTco.hidden = name !== "tco";
+  brandSub.textContent = VIEW_SUB[name] || "個人儀表板";
   document.body.dataset.view = name;
 };
 
@@ -171,6 +185,7 @@ const mtr = createMtr(
 );
 
 const traffic = createTraffic(document.querySelector("#traffic-root"), { onStatus: setNet });
+const tco = createTco(document.querySelector("#tco-root"));
 
 const settings = createAppSettings({
   overlayRoot: overlay,
@@ -220,6 +235,11 @@ const drawer = createDrawer({
   onNavigateTraffic: () => {
     showView("traffic");
     traffic.refresh();
+  },
+  onNavigateTco: () => {
+    showView("tco");
+    tco.start();
+    setNet("買車成本模擬");
   },
 });
 
