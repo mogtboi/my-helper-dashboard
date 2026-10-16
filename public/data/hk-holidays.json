@@ -1,6 +1,6 @@
 {
   "source": "1823.gov.hk general holidays; statutory tags per Employment Ordinance (maintained); bank ≈ general",
-  "updated": "2026-10-03",
+  "updated": "2026-10-16",
   "holidays": [
     {
       "date": "2025-01-01",
@@ -193,7 +193,8 @@
       "nameTc": "耶穌受難節",
       "types": [
         "general",
-        "bank"
+        "bank",
+        "statutory"
       ]
     },
     {
@@ -206,7 +207,7 @@
     },
     {
       "date": "2026-04-06",
-      "nameTc": "清明節翌日",
+      "nameTc": "清明節翌日／復活節星期一",
       "types": [
         "general",
         "bank",

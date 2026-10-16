@@ -39,10 +39,11 @@ export function createHoliday(root, { onStatus } = {}) {
 
   const render = (payload, err) => {
     if (err && !payload) {
-      root.innerHTML = `<p class="error">假期資料暫無：${err}</p>`;
+      root.innerHTML = `<p class="error">假期資料暫無：${String(err || "").replace(/</g, "&lt;")}</p>`;
       return;
     }
-    const today = todayIso();
+    // Always Asia/Hong_Kong — avoids UTC midnight→08:00 HKT using the previous calendar day
+    const today = todayIso("Asia/Hong_Kong");
     const ym = monthPrefix(today);
     const list = payload.holidays || [];
     const todayHit = list.find((h) => h.date === today);
@@ -76,7 +77,7 @@ export function createHoliday(root, { onStatus } = {}) {
             </div>`
           : `<p class="muted">未有之後假期資料</p>`
       }
-      <p class="device-local-hint">來源：1823 公眾假期曆 · 勞工假／銀行假標籤為本機整理（銀行假大致等同一般公眾假期）</p>
+      <p class="device-local-hint">來源：1823 公眾假期曆 · 日期以香港時間計算 · 勞工假／銀行假標籤為本機整理（銀行假大致等同一般公眾假期）</p>
     `;
   };
 

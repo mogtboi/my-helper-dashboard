@@ -51,7 +51,14 @@ export function calcResale(price, horizonYears, annualDepPct, firstYearPct = 20)
   return Math.max(0, value);
 }
 
-/** HK profits-tax style capital allowances: IA 60% then AA 30% RB; balancing charge on sale. */
+/**
+ * HK profits-tax capital allowances for company cars.
+ * EV: 100% first-year capital allowance (WDV → 0).
+ * ICE: first-year IA 60% + AA 30% RB thereafter.
+ * On sale in year N: Balancing Charge =
+ *   min(totalAllowancesClaimed, max(0, residual - WDV)) * taxRate
+ * (deducted from that year's tax benefit; no double-counted tax save).
+ */
 export function calcCorpTaxSavings({
   carPrice,
   horizonYears,
@@ -59,49 +66,78 @@ export function calcCorpTaxSavings({
   annualOpsDeductible,
   taxRatePct,
   enabled,
+  powertrain = "ICE",
 }) {
-  if (!enabled) return { yearly: [], total: 0 };
+  if (!enabled) return { yearly: [], total: 0, wdv: carPrice, totalAllowances: 0 };
   const rate = taxRatePct / 100;
-  let rb = carPrice;
+  const isEv = String(powertrain).toUpperCase() === "EV";
+  let wdv = carPrice;
+  let totalAllowances = 0;
   const yearly = [];
   let total = 0;
+
   for (let y = 1; y <= horizonYears; y++) {
     let allowance = 0;
-    if (y === 1) {
+    if (isEv) {
+      if (y === 1) {
+        allowance = carPrice;
+        wdv = 0;
+        totalAllowances += allowance;
+      }
+    } else if (y === 1) {
       const ia = carPrice * 0.6;
-      rb = carPrice - ia;
-      const aa = rb * 0.3;
-      rb -= aa;
+      wdv = carPrice - ia;
+      const aa = wdv * 0.3;
+      wdv -= aa;
       allowance = ia + aa;
+      totalAllowances += allowance;
     } else {
-      const aa = rb * 0.3;
-      rb -= aa;
+      const aa = wdv * 0.3;
+      wdv -= aa;
       allowance = aa;
+      totalAllowances += allowance;
     }
-    const ops = annualOpsDeductible;
-    let taxSave = (allowance + ops) * rate;
+
+    let taxSave = (allowance + annualOpsDeductible) * rate;
     if (y === horizonYears) {
-      // Balancing charge if sale > remaining RB
-      const balCharge = Math.max(0, resale - rb);
-      taxSave -= balCharge * rate;
-      rb = 0;
+      const residualGap = Math.max(0, resale - wdv);
+      const balBase = Math.min(totalAllowances, residualGap);
+      taxSave -= balBase * rate;
     }
     yearly.push(taxSave);
     total += taxSave;
   }
-  return { yearly, total };
+  return { yearly, total, wdv, totalAllowances };
 }
 
-function investFutureValue(cashflows, annualReturnPct) {
-  // cashflows[0] at t=0, then end of each year additions; compound annually
-  const r = annualReturnPct / 100;
-  let bal = 0;
-  const path = [];
-  for (let i = 0; i < cashflows.length; i++) {
-    bal = bal * (1 + r) + cashflows[i];
-    path.push(bal);
+/**
+ * Mode A opportunity portfolio: invest (車價 − 首期), monthly cashflow.
+ * Each month: balance += balance * (annualReturn/12), then subtract monthlyPayment
+ * while the loan is outstanding. Do NOT multiply whole principal by (1+r)^N.
+ */
+export function simulateMonthlyLoanOpportunity({
+  principal,
+  monthlyPayment,
+  loanMonths,
+  horizonMonths,
+  annualReturnPct,
+}) {
+  const r = Math.max(0, annualReturnPct) / 100 / 12;
+  let balance = Math.max(0, principal);
+  const yearEnds = [];
+  const months = Math.max(1, horizonMonths);
+  const payMonths = Math.max(0, loanMonths);
+
+  for (let m = 1; m <= months; m++) {
+    balance += balance * r;
+    if (m <= payMonths) balance -= monthlyPayment;
+    if (m % 12 === 0) yearEnds.push(balance);
   }
-  return { final: bal, path };
+  // If horizon isn't a whole number of years, still expose final
+  if (months % 12 !== 0) {
+    // pad yearEnds only when needed by callers using full years
+  }
+  return { final: balance, yearEnds };
 }
 
 /**
@@ -128,6 +164,7 @@ export function simulateBuyVsTransport(input) {
     invReturnPct,
     corpTaxEnabled,
     corpTaxRatePct,
+    powertrain = "EV",
   } = input;
 
   const down = (carPrice * downPct) / 100;
@@ -140,32 +177,36 @@ export function simulateBuyVsTransport(input) {
   const annualTunnel = monthlyHourlyTunnel * 12;
   const annualOps =
     annualParking + annualTunnel + annualEnergy + licenseFee + insuranceFee + maintFee;
-  const annualOpsDeductible = annualOps; // simplified: all ops deductible if corp
 
   const tax = calcCorpTaxSavings({
     carPrice,
     horizonYears: horizon,
     resale,
-    annualOpsDeductible,
+    annualOpsDeductible: annualOps,
     taxRatePct: corpTaxRatePct,
     enabled: corpTaxEnabled,
+    powertrain,
+  });
+
+  // Opportunity cost: invest financed principal, pay loan from portfolio monthly
+  const opp = simulateMonthlyLoanOpportunity({
+    principal,
+    monthlyPayment: loan.monthly,
+    loanMonths: loan.months,
+    horizonMonths: horizon * 12,
+    annualReturnPct: invReturnPct,
   });
 
   const years = [];
-  let cumBuyCash = down; // t0
+  let cumBuyCash = down; // t0 downpayment
   let cumTransportCash = 0;
-  const investCFs = [down]; // opportunity: invest downpayment at t0
 
   for (let y = 1; y <= horizon; y++) {
-    const loanPay =
-      y <= loanYears ? loan.monthly * 12 : 0;
+    const loanPay = y <= loanYears ? loan.monthly * 12 : 0;
     const ops = annualOps;
     const taxSave = tax.yearly[y - 1] || 0;
     const buyOut = loanPay + ops - taxSave;
     const transportOut = altTransportMonthly * 12;
-    // Invest the cashflow difference (what buy spends beyond transport), plus at end add nothing yet
-    const spareToInvest = Math.max(0, buyOut - transportOut);
-    investCFs.push(spareToInvest);
 
     cumBuyCash += buyOut;
     cumTransportCash += transportOut;
@@ -177,32 +218,17 @@ export function simulateBuyVsTransport(input) {
       taxSave,
       buyOut,
       transportOut,
-      spareToInvest,
+      investBalance: opp.yearEnds[y - 1] ?? opp.final,
       resaleIfSold: calcResale(carPrice, y, depRatePct),
     });
   }
 
-  // Ending: sell car → reduce buy net cost; transport portfolio keeps invested balance
-  const { final: investFinal, path: investPath } = investFutureValue(investCFs, invReturnPct);
-  // Attach invest balance by year
-  years.forEach((row, idx) => {
-    row.investBalance = investPath[idx + 1] ?? investPath[investPath.length - 1];
-  });
-
+  const investFinal = opp.final;
   const buyNetTco = cumBuyCash - resale;
   const transportTotalSpend = cumTransportCash;
-  // Fair compare: buy net TCO vs (transport spend - ending invest portfolio that came from "saved" buy cash)
-  // Ending wealth if not buying = investFinal (includes down + annual spares). Net position:
-  // Advantage of not buying ≈ investFinal - resale_equivalent... Standard framing:
-  // Buy path net cost = buyNetTco
-  // No-buy path: paid transportTotalSpend but holds investFinal assets.
-  // Economic gap (positive => buying costs more): buyNetTco - (transportTotalSpend - investFinal)
-  // Simplify for UI:
-  // kpi1 = buyNetTco
-  // kpi2 = investFinal (opportunity portfolio)
-  // Also show transport spend separately
+  // KPI wording: gap > 0 → 搭車+投資較着數
+  // Relative advantage ≈ (transport path holds investFinal) vs buyNetTco after transport spend
   const gap = buyNetTco - transportTotalSpend + investFinal;
-  // gap > 0 means not-buying ends ahead by that amount (buy costlier by gap relative to portfolio)
 
   const totalKm = monthlyKm * 12 * horizon;
   const monthlyAvg = buyNetTco / (horizon * 12);
@@ -217,7 +243,7 @@ export function simulateBuyVsTransport(input) {
     buyNetTco,
     transportTotalSpend,
     investFinal,
-    gap, // >0 → 搭車+投資較着數 by gap
+    gap,
     monthlyAvg,
     perKm,
     corpTaxTotal: tax.total,
@@ -228,10 +254,11 @@ export function simulateBuyVsTransport(input) {
 
 /** Mode B: EV (primary inputs) vs ICE (comparison inputs). Same loan/dep/parking structure. */
 export function simulateEvVsIce(input) {
-  const base = { ...input };
+  const base = { ...input, powertrain: "EV" };
   const ev = simulateBuyOnly(base);
   const iceInput = {
     ...base,
+    powertrain: "ICE",
     carPrice: input.iceCompPrice,
     costPerKm: input.iceCompFuel,
     licenseFee: input.iceCompLicense,
@@ -283,6 +310,7 @@ function simulateBuyOnly(input) {
     maintFee,
     corpTaxEnabled,
     corpTaxRatePct,
+    powertrain = "EV",
   } = input;
 
   const down = (carPrice * downPct) / 100;
@@ -304,6 +332,7 @@ function simulateBuyOnly(input) {
     annualOpsDeductible: annualOps,
     taxRatePct: corpTaxRatePct,
     enabled: corpTaxEnabled,
+    powertrain,
   });
 
   const years = [];

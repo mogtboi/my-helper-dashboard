@@ -6,6 +6,7 @@ import {
   KMB_BASE,
 } from "./kmbApi.js";
 import { selectionRoutesLabel } from "./busStore.js";
+import { escapeHtml } from "./escapeHtml.js";
 
 function minsUntil(etaIso, now = Date.now()) {
   if (!etaIso) return null;
@@ -20,8 +21,10 @@ function formatEtaItems(items) {
     .map((it) => {
       const label =
         it.mins === 0 ? "即將到達" : it.mins == null ? "—" : `${it.mins} 分鐘`;
+      const dest = escapeHtml(it.dest);
+      const rmk = it.rmk ? ` · ${escapeHtml(it.rmk)}` : "";
       return `<li class="eta-item">
-        <span class="eta-dest">${it.dest}${it.rmk ? ` · ${it.rmk}` : ""}</span>
+        <span class="eta-dest">${dest}${rmk}</span>
         <span class="eta-mins">${label}</span>
       </li>`;
     })
@@ -30,18 +33,19 @@ function formatEtaItems(items) {
 
 function formatNoEta(reason) {
   const r = (reason || "").trim();
+  // Prefer API remark (e.g. 最後一班車已開出); only fall back to generic copy
   if (r) {
-    return `<p class="muted">暫時冇班次</p><p class="eta-reason">${r}</p>`;
+    return `<p class="eta-reason">${escapeHtml(r)}</p>`;
   }
   return `<p class="muted">暫時冇班次</p>`;
 }
 
-/** Returns { items, reason } — reason only from API remarks when no ETAs. */
+/** Returns { items, reason } — reason from null/empty-eta rows with rmk_tc when no real ETAs. */
 async function loadEtaRows(stopId, route, serviceType) {
   const rows = await fetchEta(stopId, route, serviceType);
   const now = Date.now();
-  const items = rows
-    .filter((r) => r.eta)
+  const withEta = rows.filter((r) => r.eta != null && String(r.eta).trim() !== "");
+  const items = withEta
     .map((r) => ({
       dest: r.dest_tc,
       eta: r.eta,
@@ -49,16 +53,26 @@ async function loadEtaRows(stopId, route, serviceType) {
       rmk: r.rmk_tc,
     }))
     .slice(0, 3);
+
+  if (items.length) {
+    return { items, reason: "" };
+  }
+
+  // No real ETA: only use remarks from rows where eta is null/"" but rmk_tc is non-empty
   const remarks = [
     ...new Set(
       rows
-        .map((r) => (r.rmk_tc || r.rmk_en || "").trim())
+        .filter((r) => {
+          const etaEmpty = r.eta == null || String(r.eta).trim() === "";
+          return etaEmpty && String(r.rmk_tc || "").trim();
+        })
+        .map((r) => String(r.rmk_tc || "").trim())
         .filter(Boolean)
     ),
   ];
   return {
-    items,
-    reason: items.length ? "" : remarks.join("；"),
+    items: [],
+    reason: remarks.join("；"),
   };
 }
 

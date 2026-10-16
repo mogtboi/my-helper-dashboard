@@ -569,14 +569,14 @@ export function createTco(root) {
       $("#kpi1-sub2").textContent = `$${result.perKm.toFixed(2)} /km`;
       $("#kpi1-sub3").textContent = fmtHK(result.resale);
 
-      $("#kpi2-title").textContent = "唔買車「搭車+差額投資」期末資產";
+      $("#kpi2-title").textContent = `${horizon}年貸款本金機會成本投資期末結餘`;
       $("#kpi2-main-val").textContent = fmtHK(result.investFinal);
-      $("#kpi2-badge").textContent = "機會成本組合";
+      $("#kpi2-badge").textContent = "月結模擬（車價−首期）";
       $("#kpi2-sub1").textContent = `搭車總開支 ${fmtHK(result.transportTotalSpend)}`;
 
       const ahead = result.gap; // buyNet - transport + invest
       // Positive ahead means not-buying financial position is better by that amount
-      $("#kpi3-title").textContent = "相對優勢（搭車+投資 − 買車淨成本）";
+      $("#kpi3-title").textContent = "相對優勢（機會投資結餘 − 買車淨成本 + 搭車開支調整）";
       $("#kpi3-main-val").textContent = fmtHK(ahead);
       $("#kpi3-badge").textContent = ahead >= 0 ? "搭車較着數" : "買車較着數";
       $("#kpi3-note").textContent =

@@ -106,39 +106,77 @@ export function destLabel(code) {
   return DEST_TC[code] || code || "—";
 }
 
+function safeMtrReason(json) {
+  try {
+    const errMsg = json?.error?.errorMsg;
+    const msg = json?.message;
+    const raw =
+      (errMsg != null && String(errMsg).trim()) ||
+      (msg != null && String(msg).trim() && String(msg).trim() !== "successful"
+        ? String(msg).trim()
+        : "") ||
+      "";
+    return raw;
+  } catch {
+    return "";
+  }
+}
+
 export async function fetchMtrSchedule(line, sta) {
   const url = `${BASE}?line=${encodeURIComponent(line)}&sta=${encodeURIComponent(sta)}`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
+  const json = (await res.json().catch(() => null)) || {};
   const key = `${line}-${sta}`;
-  const block = json?.data?.[key];
+  const data = json.data && typeof json.data === "object" ? json.data : {};
+  const block = data[key];
 
-  const rawMsg =
-    json?.error?.errorMsg ||
-    (json?.message && json.message !== "successful" ? json.message : "") ||
-    "";
-  const reason = String(rawMsg || "").trim();
+  const status = json.status;
+  const isdelay = json.isdelay;
+  const reason = safeMtrReason(json);
 
-  if (!block) {
-    // No schedule block — often disabled line / no service; surface API message if any
+  // Handle degraded / delayed responses before reading UP/DOWN
+  const statusFailed = status === 0 || status === "0";
+  const delayed = String(isdelay || "").toUpperCase() === "Y";
+
+  if (!block || typeof block !== "object") {
     return {
       up: [],
       down: [],
-      currTime: json?.curr_time || json?.sys_time || "",
-      status: json?.status,
-      isdelay: json?.isdelay,
-      reason: reason || null,
+      currTime: json.curr_time || json.sys_time || "",
+      status,
+      isdelay,
+      reason: reason || (statusFailed ? "暫時冇班次資料" : null),
+      statusFailed,
+      delayed,
+    };
+  }
+
+  const up = Array.isArray(block.UP) ? block.UP : [];
+  const down = Array.isArray(block.DOWN) ? block.DOWN : [];
+
+  if (statusFailed || (delayed && !up.length && !down.length)) {
+    return {
+      up: [],
+      down: [],
+      currTime: block.curr_time || json.curr_time || "",
+      status,
+      isdelay,
+      reason: reason || (delayed ? "列車服務延誤" : "暫時冇班次資料"),
+      statusFailed,
+      delayed,
     };
   }
 
   return {
-    up: Array.isArray(block.UP) ? block.UP : [],
-    down: Array.isArray(block.DOWN) ? block.DOWN : [],
-    currTime: block.curr_time || json.curr_time,
-    status: json?.status,
-    isdelay: json?.isdelay,
-    reason: reason || null,
+    up,
+    down,
+    currTime: block.curr_time || json.curr_time || "",
+    status,
+    isdelay,
+    reason: reason || (delayed ? "列車服務延誤" : null),
+    statusFailed,
+    delayed,
   };
 }
 

@@ -1,11 +1,12 @@
 import { fetchMtrSchedule, destLabel } from "./mtrApi.js";
 import { MTR_LINES, lineByCode, stationOnLine } from "./mtrLines.js";
 import { saveMtrSelection } from "./mtrStore.js";
+import { escapeHtml } from "./escapeHtml.js";
 
 function formatNoEta(reason) {
   const r = (reason || "").trim();
   if (r) {
-    return `<p class="muted">暫時冇班次</p><p class="eta-reason">${r}</p>`;
+    return `<p class="muted">暫時冇班次</p><p class="eta-reason">${escapeHtml(r)}</p>`;
   }
   return `<p class="muted">暫時冇班次</p>`;
 }
@@ -16,11 +17,11 @@ function formatRows(rows, limit = 4, reason = "") {
   return `<ul class="eta-list">${valid
     .map((r) => {
       const mins = r.ttnt === "0" || r.ttnt === 0 ? "即將到達" : `${r.ttnt} 分鐘`;
-      const dest = destLabel(r.dest);
-      const plat = r.plat ? ` · 月台 ${r.plat}` : "";
+      const dest = escapeHtml(destLabel(r.dest));
+      const plat = r.plat ? ` · 月台 ${escapeHtml(r.plat)}` : "";
       return `<li class="eta-item">
         <span class="eta-dest">往${dest}${plat}</span>
-        <span class="eta-mins">${mins}</span>
+        <span class="eta-mins">${escapeHtml(mins)}</span>
       </li>`;
     })
     .join("")}</ul>`;
@@ -208,16 +209,22 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       const staMeta = line?.stations.find((s) => s.sta === browse.station);
       const dirLabel = browse.dir === "UP" ? line?.upLabel : line?.downLabel;
       try {
-        const { up, down, reason } = await fetchMtrSchedule(browse.line, browse.station);
+        const sched = await fetchMtrSchedule(browse.line, browse.station);
+        const { up = [], down = [], reason, statusFailed, delayed } = sched || {};
         const rows = browse.dir === "UP" ? up : down;
+        const notice =
+          delayed && reason
+            ? `<p class="eta-reason">${escapeHtml(reason)}</p>`
+            : "";
         lastHtml = `
-          <div class="eta-dir">${line?.nameTc} · ${staMeta?.nameTc || browse.station} · ${dirLabel}</div>
-          ${formatRows(rows, 4, reason)}
+          <div class="eta-dir">${escapeHtml(line?.nameTc || "")} · ${escapeHtml(staMeta?.nameTc || browse.station)} · ${escapeHtml(dirLabel || "")}</div>
+          ${notice}
+          ${statusFailed ? formatNoEta(reason) : formatRows(rows, 4, reason)}
         `;
         body.innerHTML = lastHtml;
         onStatus?.("港鐵已更新");
       } catch (e) {
-        body.innerHTML = `<p class="error">港鐵暫無資料：${e.message || e}</p>`;
+        body.innerHTML = `<p class="error">港鐵暫無資料：${escapeHtml(e.message || e)}</p>`;
         onStatus?.("港鐵更新失敗");
       }
       return;
@@ -229,23 +236,37 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       return;
     }
     try {
-      const { up, down, reason } = await fetchMtrSchedule(station.line, station.sta);
+      const sched = await fetchMtrSchedule(station.line, station.sta);
+      const { up = [], down = [], reason, statusFailed, delayed } = sched || {};
       const line = lineByCode(station.line);
       const upHas = (up || []).some((r) => r && r.valid !== "N");
       const downHas = (down || []).some((r) => r && r.valid !== "N");
-      lastHtml = `
-        <div class="eta-dir">${station.lineTc || station.line} · ${station.nameTc} · ${line?.upLabel || "上行"}</div>
-        ${formatRows(up, 4, !upHas ? reason : "")}
-        <div style="height:0.55rem"></div>
-        <div class="eta-dir">${station.lineTc || station.line} · ${station.nameTc} · ${line?.downLabel || "下行"}</div>
-        ${formatRows(down, 4, !downHas ? (upHas ? reason : "") : "")}
-      `;
+      const head = `${escapeHtml(station.lineTc || station.line)} · ${escapeHtml(station.nameTc)}`;
+      const notice =
+        delayed && reason
+          ? `<p class="eta-reason">${escapeHtml(reason)}</p>`
+          : "";
+      if (statusFailed) {
+        lastHtml = `
+          <div class="eta-dir">${head}</div>
+          ${formatNoEta(reason)}
+        `;
+      } else {
+        lastHtml = `
+          ${notice}
+          <div class="eta-dir">${head} · ${escapeHtml(line?.upLabel || "上行")}</div>
+          ${formatRows(up, 4, !upHas ? reason : "")}
+          <div style="height:0.55rem"></div>
+          <div class="eta-dir">${head} · ${escapeHtml(line?.downLabel || "下行")}</div>
+          ${formatRows(down, 4, !downHas ? (upHas ? reason : "") : "")}
+        `;
+      }
       body.innerHTML = lastHtml;
       onStatus?.("港鐵已更新");
     } catch (e) {
       body.innerHTML = lastHtml
-        ? `${lastHtml}<p class="error">刷新失敗：${e.message || e}</p>`
-        : `<p class="error">港鐵暫無資料：${e.message || e}</p>`;
+        ? `${lastHtml}<p class="error">刷新失敗：${escapeHtml(e.message || e)}</p>`
+        : `<p class="error">港鐵暫無資料：${escapeHtml(e.message || e)}</p>`;
       onStatus?.("港鐵更新失敗");
     }
   };

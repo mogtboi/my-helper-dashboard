@@ -4,6 +4,8 @@
  * Fallback: td.gov.hk trafficnews.xml (also CORS-enabled).
  */
 
+import { escapeHtml } from "./escapeHtml.js";
+
 const PRIMARY_URL = "https://resource.data.one.gov.hk/td/tc/specialtrafficnews.xml";
 const FALLBACK_URL = "https://www.td.gov.hk/tc/special_news/trafficnews.xml";
 
@@ -198,8 +200,12 @@ function headingFromBody(body) {
   return cut.length > 48 ? `${cut.slice(0, 48)}…` : cut;
 }
 
+/** Strip 「往…方向」 so e.g. 香港仔隧道往九龍方向 is not classed as Kowloon. */
+const DIRECTIONAL_PHRASE =
+  /往\s*(九龍|香港|港島|新界|荃灣|屯門|沙田|元朗|大埔|將軍澳|西貢|東涌|機場)[^，。；\s]*方向/g;
+
 function regionFromText(text) {
-  const hay = String(text || "");
+  const hay = String(text || "").replace(DIRECTIONAL_PHRASE, " ");
   const hits = [];
   for (const [id, words] of Object.entries(REGION_KEYWORDS)) {
     if (words.some((w) => hay.includes(w))) hits.push(id);
@@ -268,14 +274,6 @@ async function fetchXml(url) {
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
-}
-
-function escapeHtml(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 function renderCards(list) {

@@ -62,7 +62,9 @@ body {
 
 #app,
 .app-view,
+.view,
 .panel,
+.panel-stack,
 .drawer-panel,
 .drawer-body,
 .settings-sheet,
@@ -72,7 +74,12 @@ body {
 .eta-dir,
 .route-option,
 .drawer-cat-link-title,
-.drawer-cat-link-blurb {
+.drawer-cat-link-blurb,
+.tco-page,
+.tco-page-panel,
+.tco-chart-wrap,
+.tco-kpi-grid,
+.tco-section {
   min-width: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -1646,8 +1653,10 @@ body.drawer-open {
 
 .tco-table-wrap {
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
+  min-width: 0;
 }
 
 .tco-table {
