@@ -393,21 +393,37 @@ body {
   min-height: 36px;
 }
 
-.bus-chip-row {
-  display: flex;
-  flex-wrap: nowrap;
+.bus-saved {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bus-chip-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(4, auto);
+  grid-auto-columns: max-content;
+  justify-content: start;
+  align-content: start;
+  gap: 8px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  white-space: nowrap;
-  gap: 8px;
   scrollbar-width: none;
-  margin: 0 0 0.4rem;
   max-width: 100%;
   min-width: 0;
 }
 
-.bus-chip-row::-webkit-scrollbar {
+.bus-chip-grid::-webkit-scrollbar {
   display: none;
+}
+
+.bus-chip-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .bus-pill {

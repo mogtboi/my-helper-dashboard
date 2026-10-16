@@ -157,10 +157,7 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
         return `<button type="button" class="bus-pill" data-watch="${escapeHtml(it.id)}" aria-pressed="${on}">${escapeHtml(label)}</button>`;
       })
       .join("");
-    row.innerHTML = `
-      ${chips || `<span class="muted fav-empty">未有常用</span>`}
-      <button type="button" class="bus-pill bus-pill-add" id="bus-add-toggle" aria-expanded="${searchOpen}">＋ 查車</button>
-    `;
+    row.innerHTML = chips || `<span class="muted fav-empty">未有常用</span>`;
   };
 
   const paintShell = () => {
@@ -169,7 +166,13 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
       current = selection.items.find((i) => i.id === selection.activeId) || selection.items[0];
     }
     root.innerHTML = `
-      <div class="bus-chip-row" id="bus-chips" aria-label="常用巴士"></div>
+      <div class="bus-saved">
+        <div class="bus-chip-grid" id="bus-chips" aria-label="常用巴士"></div>
+        <div class="bus-chip-tools">
+          <button type="button" class="bus-pill bus-pill-add" id="bus-add-toggle" aria-expanded="${searchOpen}">＋ 查車</button>
+          <button type="button" class="bus-pill bus-near-pill" id="bus-nearby">📍 附近分站</button>
+        </div>
+      </div>
       <div id="bus-eta"><p class="muted">載入 ETA…</p></div>
       <section class="bus-search" id="bus-search" ${searchOpen ? "" : "hidden"}>
         <div class="add-form bus-search-form">
@@ -403,6 +406,47 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     }
   };
 
+  const locateNearest = () => {
+    if (!current?.route) {
+      onStatus?.("先揀或搜尋一條路線");
+      return;
+    }
+    if (!navigator.geolocation) {
+      onStatus?.("呢部機冇定位");
+      return;
+    }
+    onStatus?.("定位中…（只喺呢部機計距離）");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        try {
+          const variants = await fetchRouteVariants(current.route);
+          const preferred = variants.filter((v) => v.serviceType === "1");
+          const use = preferred.length ? preferred : variants;
+          const all = [];
+          for (const variant of use) {
+            const raw = await fetchRouteStops(variant.route, variant.bound, variant.serviceType);
+            const named = await mapStopsWithNames(raw);
+            for (const stop of named) all.push({ ...stop, variant });
+          }
+          const ranked = rankStopsByDistance(all, lat, lng);
+          const nearest = ranked.find((s) => Number.isFinite(s.meters));
+          if (!nearest) {
+            onStatus?.("附近冇站座標");
+            return;
+          }
+          await adoptStop(nearest, nearest.variant);
+          onStatus?.(`最近：${nearest.nameTc} · ${formatMeters(nearest.meters)}`);
+        } catch (err) {
+          onStatus?.(`附近分站失敗：${err.message || err}`);
+        }
+      },
+      () => onStatus?.("定位未允許"),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+    );
+  };
+
   const reverseDirection = async () => {
     if (reverseLock || !current) return;
     reverseLock = true;
@@ -451,6 +495,10 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
       pickerOpen = false;
       paintShell();
       refresh();
+      return;
+    }
+    if (e.target.closest("#bus-nearby")) {
+      locateNearest();
       return;
     }
     if (e.target.closest("#bus-add-toggle")) {
