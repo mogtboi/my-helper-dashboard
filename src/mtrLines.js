@@ -3,10 +3,29 @@
  * Flow: line → direction (UP/DOWN) → station.
  */
 
+/** Official MTR line brand colours (for route badges). */
+export const MTR_LINE_COLORS = {
+  EAL: "#53B7E8",
+  TWL: "#E3002D",
+  ISL: "#007DC5",
+  KTL: "#00A040",
+  TML: "#9A3B26",
+  TCL: "#F7943D",
+  TKL: "#7D499D",
+  SIL: "#BACF00",
+  AEL: "#00888A",
+  DRL: "#F755A1",
+};
+
+export function lineColor(code) {
+  return MTR_LINE_COLORS[code] || "#5aa7d6";
+}
+
 export const MTR_LINES = [
   {
     code: "EAL",
     nameTc: "東鐵綫",
+    color: MTR_LINE_COLORS.EAL,
     upLabel: "往羅湖／落馬洲",
     downLabel: "往金鐘",
     stations: [
@@ -31,6 +50,7 @@ export const MTR_LINES = [
   {
     code: "TWL",
     nameTc: "荃灣綫",
+    color: MTR_LINE_COLORS.TWL,
     upLabel: "往荃灣",
     downLabel: "往中環",
     stations: [
@@ -55,6 +75,7 @@ export const MTR_LINES = [
   {
     code: "ISL",
     nameTc: "港島綫",
+    color: MTR_LINE_COLORS.ISL,
     upLabel: "往柴灣",
     downLabel: "往堅尼地城",
     stations: [
@@ -80,6 +101,7 @@ export const MTR_LINES = [
   {
     code: "KTL",
     nameTc: "觀塘綫",
+    color: MTR_LINE_COLORS.KTL,
     upLabel: "往調景嶺",
     downLabel: "往黃埔",
     stations: [
@@ -105,6 +127,7 @@ export const MTR_LINES = [
   {
     code: "TML",
     nameTc: "屯馬綫",
+    color: MTR_LINE_COLORS.TML,
     upLabel: "往屯門",
     downLabel: "往烏溪沙",
     stations: [
@@ -140,6 +163,7 @@ export const MTR_LINES = [
   {
     code: "TCL",
     nameTc: "東涌綫",
+    color: MTR_LINE_COLORS.TCL,
     upLabel: "往東涌",
     downLabel: "往香港",
     stations: [
@@ -156,6 +180,7 @@ export const MTR_LINES = [
   {
     code: "TKL",
     nameTc: "將軍澳綫",
+    color: MTR_LINE_COLORS.TKL,
     upLabel: "往寶琳／康城",
     downLabel: "往北角",
     stations: [
@@ -172,6 +197,7 @@ export const MTR_LINES = [
   {
     code: "SIL",
     nameTc: "南港島綫",
+    color: MTR_LINE_COLORS.SIL,
     upLabel: "往海怡半島",
     downLabel: "往金鐘",
     stations: [
@@ -185,6 +211,7 @@ export const MTR_LINES = [
   {
     code: "AEL",
     nameTc: "機場快綫",
+    color: MTR_LINE_COLORS.AEL,
     upLabel: "往機場／博覽館",
     downLabel: "往香港",
     stations: [
@@ -198,6 +225,7 @@ export const MTR_LINES = [
   {
     code: "DRL",
     nameTc: "迪士尼綫",
+    color: MTR_LINE_COLORS.DRL,
     upLabel: "往迪士尼",
     downLabel: "往欣澳",
     stations: [

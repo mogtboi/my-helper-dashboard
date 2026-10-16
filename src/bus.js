@@ -5,8 +5,18 @@ import {
   mapStopsWithNames,
   KMB_BASE,
 } from "./kmbApi.js";
-import { selectionRoutesLabel } from "./busStore.js";
+import {
+  selectionRoutesLabel,
+  toggleBusFavorite,
+  isBusFavorite,
+} from "./busStore.js";
 import { escapeHtml } from "./escapeHtml.js";
+import {
+  compactEtaCard,
+  freshnessBarHtml,
+  freshnessLabel,
+  makeRefreshController,
+} from "./transitUi.js";
 
 function minsUntil(etaIso, now = Date.now()) {
   if (!etaIso) return null;
@@ -14,30 +24,6 @@ function minsUntil(etaIso, now = Date.now()) {
   if (Number.isNaN(diff)) return null;
   if (diff <= 0) return 0;
   return Math.round(diff / 60000);
-}
-
-function formatEtaItems(items) {
-  return items
-    .map((it) => {
-      const label =
-        it.mins === 0 ? "即將到達" : it.mins == null ? "—" : `${it.mins} 分鐘`;
-      const dest = escapeHtml(it.dest);
-      const rmk = it.rmk ? ` · ${escapeHtml(it.rmk)}` : "";
-      return `<li class="eta-item">
-        <span class="eta-dest">${dest}${rmk}</span>
-        <span class="eta-mins">${label}</span>
-      </li>`;
-    })
-    .join("");
-}
-
-function formatNoEta(reason) {
-  const r = (reason || "").trim();
-  // Prefer API remark (e.g. 最後一班車已開出); only fall back to generic copy
-  if (r) {
-    return `<p class="eta-reason">${escapeHtml(r)}</p>`;
-  }
-  return `<p class="muted">暫時冇班次</p>`;
 }
 
 /** Returns { items, reason } — reason from null/empty-eta rows with rmk_tc when no real ETAs. */
@@ -58,7 +44,6 @@ async function loadEtaRows(stopId, route, serviceType) {
     return { items, reason: "" };
   }
 
-  // No real ETA: only use remarks from rows where eta is null/"" but rmk_tc is non-empty
   const remarks = [
     ...new Set(
       rows
@@ -94,19 +79,96 @@ function buildRouteGroups(selection) {
   return map;
 }
 
+function destFromDirLabel(label) {
+  const s = String(label || "");
+  return s.replace(/^往\s*/, "") || s;
+}
+
 /**
- * Bus ETA panel — saved route tiles, 「其他」for unsaved stops, + search sector.
+ * Bus ETA panel — favorites chips, compact ETA, reverse, freshness.
  */
-export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
+export function createBus(root, titleEl, { onStatus, onOpenSettings, onSelectionPersist } = {}) {
   let selection = null;
   let activeRoute = null;
   let activeOptionKey = null;
-  /** Ephemeral browse: { route, stopId, nameTc, label, serviceType } */
+  /** Ephemeral browse: { route, stopId, nameTc, label, serviceType, destTc } */
   let browsePick = null;
   let mode = "saved"; // saved | other | search
   let lastHtml = "";
   let timer = null;
+  let freshTimer = null;
+  let lastFetchAt = 0;
   let groups = new Map();
+  let refreshCtrl = null;
+
+  const persist = (next) => {
+    selection = next;
+    onSelectionPersist?.(next);
+  };
+
+  const currentFavLike = () => {
+    if ((mode === "other" || mode === "search") && browsePick) {
+      return {
+        route: browsePick.route,
+        stopId: browsePick.stopId,
+        nameTc: browsePick.nameTc,
+        dirLabel: browsePick.label?.includes("往")
+          ? browsePick.label.split("·").pop()?.trim() || browsePick.label
+          : `往${browsePick.destTc || ""}`,
+        bound: browsePick.bound || "",
+        serviceType: browsePick.serviceType || "1",
+      };
+    }
+    const options = groups.get(activeRoute) || [];
+    const opt = options.find((o) => o.key === activeOptionKey) || options[0];
+    if (!opt) return null;
+    return {
+      route: opt.stop.route,
+      stopId: opt.dir.stopId,
+      nameTc: opt.stop.nameTc,
+      dirLabel: opt.dir.label,
+      bound: opt.dir.bound || "",
+      serviceType: opt.dir.serviceType || opt.stop.serviceType || "1",
+      optionKey: opt.key,
+      stopEntryId: opt.stop.id,
+    };
+  };
+
+  const paintFavChips = () => {
+    const row = root.querySelector("#bus-fav-chips");
+    if (!row) return;
+    const favs = selection?.favorites || [];
+    if (!favs.length) {
+      row.innerHTML = `<span class="muted fav-empty">未有常用 · 撳 ★ 釘選呢個站</span>`;
+      return;
+    }
+    row.innerHTML = favs
+      .map(
+        (f) => `
+      <button type="button" class="fav-chip" data-fav="${escapeHtml(f.id)}"
+        aria-label="${escapeHtml(f.route)} ${escapeHtml(f.dirLabel)} ${escapeHtml(f.nameTc)}">
+        <span class="fav-chip-route">${escapeHtml(f.route)}</span>
+        <span class="fav-chip-meta">${escapeHtml(f.dirLabel)} · ${escapeHtml(f.nameTc)}</span>
+      </button>`
+      )
+      .join("");
+  };
+
+  const updateStarBtn = () => {
+    const btn = root.querySelector("#bus-star-btn");
+    if (!btn) return;
+    const like = currentFavLike();
+    const on = like && isBusFavorite(selection, like);
+    btn.setAttribute("aria-pressed", String(!!on));
+    btn.classList.toggle("is-pinned", !!on);
+    btn.textContent = on ? "★" : "☆";
+    btn.title = on ? "取消常用" : "加到常用";
+  };
+
+  const updateFreshLabel = () => {
+    const el = root.querySelector("#bus-fresh");
+    if (el) el.textContent = freshnessLabel(lastFetchAt);
+  };
 
   const paintShell = () => {
     groups = buildRouteGroups(selection);
@@ -128,9 +190,15 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
     }
 
     root.innerHTML = `
+      <div class="fav-chip-row" id="bus-fav-chips" aria-label="常用巴士"></div>
       <div class="bus-toolbar">
         <div class="route-tiles" role="tablist" aria-label="已存巴士路線"></div>
-        <button type="button" class="icon-btn settings-gear" id="bus-settings-btn" aria-label="巴士路線設定">設定</button>
+        <div class="transit-toolbar-actions">
+          <button type="button" class="icon-btn star-btn" id="bus-star-btn" aria-pressed="false" aria-label="釘選常用">☆</button>
+          <button type="button" class="icon-btn reverse-btn" id="bus-reverse-btn" aria-label="調轉方向" title="調轉方向">⇄</button>
+          ${freshnessBarHtml("bus")}
+          <button type="button" class="icon-btn settings-gear" id="bus-settings-btn" aria-label="巴士路線設定">設定</button>
+        </div>
       </div>
       <div id="route-options" class="route-options"></div>
       <div id="eta-body"><p class="muted">載入 ETA…</p></div>
@@ -152,6 +220,15 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
 
       <p class="device-local-hint">路線設定只存呢部機 · 唔會同步其他裝置</p>
     `;
+
+    paintFavChips();
+    root.querySelector("#bus-fav-chips")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-fav]");
+      if (!btn) return;
+      const fav = (selection.favorites || []).find((f) => f.id === btn.dataset.fav);
+      if (!fav) return;
+      applyFavorite(fav);
+    });
 
     const tiles = root.querySelector(".route-tiles");
     tiles.innerHTML = routes.length
@@ -176,6 +253,7 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
         t.setAttribute("aria-selected", String(t.dataset.route === activeRoute));
       });
       paintOptions();
+      updateStarBtn();
       refresh();
     });
 
@@ -183,8 +261,86 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
       onOpenSettings?.();
     });
 
+    root.querySelector("#bus-star-btn").addEventListener("click", () => {
+      const like = currentFavLike();
+      if (!like) {
+        onStatus?.("未有可釘選嘅站");
+        return;
+      }
+      persist(toggleBusFavorite(selection, like));
+      paintFavChips();
+      updateStarBtn();
+      onStatus?.(isBusFavorite(selection, like) ? "已加到常用" : "已取消常用");
+    });
+
+    root.querySelector("#bus-reverse-btn").addEventListener("click", () => {
+      reverseDirection();
+    });
+
+    refreshCtrl = makeRefreshController({
+      button: root.querySelector("#bus-refresh"),
+      onRefresh: () => refresh({ force: true }),
+    });
+
     bindSearchSector();
     paintOptions();
+    updateStarBtn();
+    updateFreshLabel();
+  };
+
+  const applyFavorite = (fav) => {
+    browsePick = null;
+    mode = "saved";
+    activeRoute = fav.route;
+    groups = buildRouteGroups(selection);
+    const options = groups.get(activeRoute) || [];
+    const match =
+      options.find((o) => o.key === fav.optionKey) ||
+      options.find(
+        (o) =>
+          o.dir.stopId === fav.stopId &&
+          (o.dir.bound || "") === (fav.bound || "")
+      ) ||
+      options.find((o) => o.dir.stopId === fav.stopId);
+    if (match) {
+      activeOptionKey = match.key;
+    } else {
+      // Favorite not in saved stops — treat as browse pick
+      mode = "search";
+      browsePick = {
+        route: fav.route,
+        stopId: fav.stopId,
+        nameTc: fav.nameTc,
+        label: `${fav.nameTc} · ${fav.dirLabel}`,
+        serviceType: fav.serviceType || "1",
+        bound: fav.bound || "",
+      };
+      activeOptionKey = null;
+    }
+    paintShell();
+    refresh();
+  };
+
+  const reverseDirection = () => {
+    if (mode === "search" || mode === "other") {
+      onStatus?.("搜尋／其他站唔支援調轉；請用已存站");
+      return;
+    }
+    const options = groups.get(activeRoute) || [];
+    const opt = options.find((o) => o.key === activeOptionKey);
+    if (!opt) return;
+    const siblings = options.filter((o) => o.stop.id === opt.stop.id);
+    if (siblings.length < 2) {
+      onStatus?.("呢個站未設定另一方向");
+      return;
+    }
+    const idx = siblings.findIndex((o) => o.key === opt.key);
+    const next = siblings[(idx + 1) % siblings.length];
+    activeOptionKey = next.key;
+    paintOptions();
+    updateStarBtn();
+    refresh({ force: true });
+    onStatus?.(`已調轉：${next.dir.label}`);
   };
 
   const paintOptions = () => {
@@ -206,7 +362,7 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
             (o) => `
           <button type="button" class="route-option" role="option"
             data-opt="${o.key}" aria-selected="${!otherSelected && o.key === activeOptionKey}">
-            ${o.label}
+            ${escapeHtml(o.label)}
           </button>`
           )
           .join("")}
@@ -231,6 +387,7 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
       } else {
         panel.hidden = true;
         panel.innerHTML = "";
+        updateStarBtn();
         refresh();
       }
     });
@@ -257,7 +414,7 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
           ${list
             .map(
               (v, i) => `
-            <button type="button" class="station-btn" data-ov="${i}">${v.route} · ${v.label}</button>`
+            <button type="button" class="station-btn" data-ov="${i}">${escapeHtml(v.route)} · ${escapeHtml(v.label)}</button>`
             )
             .join("")}
         </div>
@@ -283,7 +440,7 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
               ${named
                 .map(
                   (s) => `
-                <button type="button" class="route-option" data-ostop="${s.stopId}">${s.nameTc}</button>`
+                <button type="button" class="route-option" data-ostop="${s.stopId}">${escapeHtml(s.nameTc)}</button>`
                 )
                 .join("")}
             </div>
@@ -298,16 +455,19 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
               nameTc: meta?.nameTc || b.dataset.ostop,
               label: `${meta?.nameTc || ""} · 往${activeV.destTc}`,
               serviceType: activeV.serviceType,
+              destTc: activeV.destTc,
+              bound: activeV.bound,
             };
             mode = "other";
+            updateStarBtn();
             refresh();
           });
         } catch (err) {
-          stopList.innerHTML = `<p class="error">${err.message || err}</p>`;
+          stopList.innerHTML = `<p class="error">${escapeHtml(err.message || err)}</p>`;
         }
       });
     } catch (err) {
-      panel.innerHTML = `<p class="error">${err.message || err}</p>`;
+      panel.innerHTML = `<p class="error">${escapeHtml(err.message || err)}</p>`;
     }
   };
 
@@ -340,7 +500,7 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
         variantsEl.innerHTML = loaded
           .map(
             (v, i) => `
-          <button type="button" class="station-btn" data-sv="${i}">${v.route} · ${v.label}</button>`
+          <button type="button" class="station-btn" data-sv="${i}">${escapeHtml(v.route)} · ${escapeHtml(v.label)}</button>`
           )
           .join("");
         statusEl.textContent = "揀方向，再揀站";
@@ -366,7 +526,7 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
             ${named
               .map(
                 (s) => `
-              <button type="button" class="route-option" data-sstop="${s.stopId}">${s.nameTc}</button>`
+              <button type="button" class="route-option" data-sstop="${s.stopId}">${escapeHtml(s.nameTc)}</button>`
               )
               .join("")}
           </div>
@@ -385,8 +545,11 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
             nameTc: meta?.nameTc || b.dataset.sstop,
             label: `${meta?.nameTc || ""} · 往${activeV.destTc}`,
             serviceType: activeV.serviceType,
+            destTc: activeV.destTc,
+            bound: activeV.bound,
           };
           paintOptions();
+          updateStarBtn();
           refresh();
         });
       } catch (err) {
@@ -395,17 +558,46 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
     });
   };
 
+  const reverseControlHtml = () => `
+    <div class="eta-card-actions">
+      <button type="button" class="reverse-cta" data-eta-reverse aria-label="調轉方向">
+        <span aria-hidden="true">⇄</span> 調轉方向
+      </button>
+    </div>`;
+
+  const bindEtaActions = (body) => {
+    body.querySelector("[data-eta-reverse]")?.addEventListener("click", () => {
+      reverseDirection();
+    });
+  };
+
   const renderError = (msg) => {
     const body = root.querySelector("#eta-body");
     if (!body) return;
     body.innerHTML = lastHtml
-      ? `${lastHtml}<p class="error">刷新失敗：${msg}</p>`
-      : `<p class="error">巴士暫無資料：${msg}</p>`;
+      ? `${lastHtml}<p class="error">刷新失敗：${escapeHtml(msg)}</p>`
+      : `<p class="error">巴士暫無資料：${escapeHtml(msg)}</p>`;
   };
 
-  const refresh = async () => {
+  const refresh = async ({ force = false } = {}) => {
     const body = root.querySelector("#eta-body");
     if (!body || !selection) return;
+
+    const paintCard = (route, dest, stopName, items, reason, showReverse) => {
+      lastHtml = compactEtaCard({
+        routeBadge: route,
+        dest,
+        stopName,
+        items,
+        reason,
+        extraActions: showReverse ? reverseControlHtml() : "",
+      });
+      body.innerHTML = lastHtml;
+      if (showReverse) bindEtaActions(body);
+      lastFetchAt = Date.now();
+      updateFreshLabel();
+      updateStarBtn();
+    };
 
     if ((mode === "other" || mode === "search") && browsePick) {
       try {
@@ -414,12 +606,12 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
           browsePick.route,
           browsePick.serviceType || "1"
         );
-        if (!items.length) {
-          lastHtml = `<div class="eta-dir">${browsePick.route} · ${browsePick.label}</div>${formatNoEta(reason)}`;
-        } else {
-          lastHtml = `<div class="eta-dir">${browsePick.route} · ${browsePick.label}</div><ul class="eta-list">${formatEtaItems(items)}</ul>`;
-        }
-        body.innerHTML = lastHtml;
+        const dest =
+          browsePick.destTc ||
+          destFromDirLabel(browsePick.label?.split("·").pop()?.trim() || "") ||
+          items[0]?.dest ||
+          "—";
+        paintCard(browsePick.route, dest, browsePick.nameTc, items, reason, false);
         onStatus?.("巴士已更新");
       } catch (e) {
         renderError(e.message || "網絡錯誤");
@@ -444,12 +636,9 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
     try {
       const serviceType = dir.serviceType || stop.serviceType || "1";
       const { items, reason } = await loadEtaRows(dir.stopId, stop.route, serviceType);
-      if (!items.length) {
-        lastHtml = `<div class="eta-dir">${stop.route} · ${opt.label}</div>${formatNoEta(reason)}`;
-      } else {
-        lastHtml = `<div class="eta-dir">${stop.route} · ${opt.label}</div><ul class="eta-list">${formatEtaItems(items)}</ul>`;
-      }
-      body.innerHTML = lastHtml;
+      const dest = destFromDirLabel(dir.label) || items[0]?.dest || "—";
+      const canReverse = options.filter((o) => o.stop.id === stop.id).length >= 2;
+      paintCard(stop.route, dest, stop.nameTc, items, reason, canReverse);
       onStatus?.("巴士已更新");
     } catch (e) {
       renderError(e.message || "網絡錯誤");
@@ -463,19 +652,25 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings } = {}) {
     refresh();
   };
 
+  const onVis = () => {
+    if (document.visibilityState !== "visible") return;
+    if (!lastFetchAt || Date.now() - lastFetchAt > 20_000) {
+      refresh({ force: true });
+    }
+  };
+
   const start = (initial) => {
     setSelection(initial);
     if (timer) clearInterval(timer);
-    timer = setInterval(refresh, 45 * 1000);
+    if (freshTimer) clearInterval(freshTimer);
+    timer = setInterval(() => refresh(), 45 * 1000);
+    freshTimer = setInterval(updateFreshLabel, 1000);
     document.addEventListener("visibilitychange", onVis);
-  };
-
-  const onVis = () => {
-    if (document.visibilityState === "visible") refresh();
   };
 
   const destroy = () => {
     if (timer) clearInterval(timer);
+    if (freshTimer) clearInterval(freshTimer);
     document.removeEventListener("visibilitychange", onVis);
   };
 

@@ -89,6 +89,25 @@ app.innerHTML = `
 
   <div id="drawer-root"></div>
   <div id="settings-overlay" class="settings-overlay" hidden></div>
+
+  <nav class="bottom-tab-bar" id="bottom-tabs" aria-label="主導覽">
+    <button type="button" class="bottom-tab" data-tab="home" aria-current="page">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 3.2 3.5 10.2V21h6.2v-6.1h4.6V21h6.2V10.2L12 3.2z"/></svg>
+      <span>主頁</span>
+    </button>
+    <button type="button" class="bottom-tab" data-tab="traffic">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 4.5 5.2v5.4C4.5 15.4 7.6 19.7 12 21c4.4-1.3 7.5-5.6 7.5-10.4V5.2L12 2zm-1.1 12.7L7.2 11l1.4-1.4 2.3 2.3 4.7-4.7L17 8.6l-6.1 6.1z"/></svg>
+      <span>交通消息</span>
+    </button>
+    <button type="button" class="bottom-tab" data-tab="tco">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M18.9 6.1H5.1L3 9.2v1.2h1.1c.5 0 .9.4.9.9v6.5c0 .7.6 1.3 1.3 1.3h1.6c.7 0 1.3-.6 1.3-1.3v-.9h6.6v.9c0 .7.6 1.3 1.3 1.3h1.6c.7 0 1.3-.6 1.3-1.3v-6.5c0-.5.4-.9.9-.9H21V9.2l-2.1-3.1zM7.4 17.1c-.6 0-1.1-.5-1.1-1.1S6.8 14.9 7.4 14.9s1.1.5 1.1 1.1-.5 1.1-1.1 1.1zm9.2 0c-.6 0-1.1-.5-1.1-1.1s.5-1.1 1.1-1.1 1.1.5 1.1 1.1-.5 1.1-1.1 1.1zM5.7 8.1h12.6l.9 1.4H4.8l.9-1.4z"/></svg>
+      <span>買車成本</span>
+    </button>
+    <button type="button" class="bottom-tab" data-tab="settings">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.1 12.9c0-.3 0-.6-.1-.9l1.7-1.3-1.6-2.8-2 .8c-.5-.4-1-.7-1.6-.9L15.1 5h-3.2l-.4 2.1c-.6.2-1.1.5-1.6.9l-2-.8-1.6 2.8 1.7 1.3c0 .3-.1.6-.1.9s0 .6.1.9L5.3 15.1l1.6 2.8 2-.8c.5.4 1 .7 1.6.9l.4 2.1h3.2l.4-2.1c.6-.2 1.1-.5 1.6-.9l2 .8 1.6-2.8-1.7-1.3c.1-.3.1-.6.1-.9zM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4z"/></svg>
+      <span>設定</span>
+    </button>
+  </nav>
 `;
 
 let moduleEnabled = loadModuleEnabled();
@@ -112,12 +131,23 @@ const VIEW_SUB = {
   tco: "買車成本模擬",
 };
 
+const bottomTabs = document.querySelector("#bottom-tabs");
+
+const syncBottomTabs = (name) => {
+  bottomTabs?.querySelectorAll(".bottom-tab").forEach((btn) => {
+    const on = btn.dataset.tab === name;
+    btn.setAttribute("aria-current", on ? "page" : "false");
+    btn.classList.toggle("is-active", on);
+  });
+};
+
 const showView = (name) => {
   viewHome.hidden = name !== "home";
   viewTraffic.hidden = name !== "traffic";
   viewTco.hidden = name !== "tco";
   brandSub.textContent = VIEW_SUB[name] || "個人儀表板";
   document.body.dataset.view = name;
+  syncBottomTabs(name === "settings" ? "settings" : name);
 };
 
 const applyVisibility = () => {
@@ -166,6 +196,9 @@ const bus = createBus(
   {
     onStatus: setNet,
     onOpenSettings: () => settings.open("bus"),
+    onSelectionPersist: (next) => {
+      busSelection = next;
+    },
   }
 );
 
@@ -244,6 +277,25 @@ const drawer = createDrawer({
 });
 
 document.querySelector("#menu-btn").addEventListener("click", () => drawer.toggle());
+
+bottomTabs?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-tab]");
+  if (!btn) return;
+  const tab = btn.dataset.tab;
+  if (tab === "home") {
+    showView("home");
+  } else if (tab === "traffic") {
+    showView("traffic");
+    traffic.refresh();
+  } else if (tab === "tco") {
+    showView("tco");
+    tco.start();
+    setNet("買車成本模擬");
+  } else if (tab === "settings") {
+    syncBottomTabs("settings");
+    drawer.openSettingsHub();
+  }
+});
 
 const boot = () => {
   updateWeatherTitle(weatherPlace);

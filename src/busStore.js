@@ -48,6 +48,17 @@ export function defaultBusSelection() {
   };
 }
 
+function isValidFavorite(f) {
+  return (
+    f &&
+    typeof f.id === "string" &&
+    typeof f.route === "string" &&
+    typeof f.stopId === "string" &&
+    typeof f.nameTc === "string" &&
+    typeof f.dirLabel === "string"
+  );
+}
+
 function isValidSelection(data) {
   return (
     data &&
@@ -62,30 +73,69 @@ function isValidSelection(data) {
         Array.isArray(s.directions) &&
         s.directions.length > 0 &&
         s.directions.every((d) => d && d.stopId && d.label)
-    )
+    ) &&
+    (data.favorites == null ||
+      (Array.isArray(data.favorites) && data.favorites.every(isValidFavorite)))
   );
+}
+
+function normalizeSelection(data) {
+  if (!Array.isArray(data.favorites)) data.favorites = [];
+  return data;
 }
 
 /** Load from this browser only. Other phones start from defaults. */
 export function loadBusSelection() {
   try {
     const raw = localStorage.getItem(BUS_STORAGE_KEY);
-    if (!raw) return defaultBusSelection();
+    if (!raw) return normalizeSelection(defaultBusSelection());
     const parsed = JSON.parse(raw);
-    if (!isValidSelection(parsed)) return defaultBusSelection();
-    if (parsed.stops.length === 0) return defaultBusSelection();
-    return parsed;
+    if (!isValidSelection(parsed)) return normalizeSelection(defaultBusSelection());
+    if (parsed.stops.length === 0) return normalizeSelection(defaultBusSelection());
+    return normalizeSelection(parsed);
   } catch {
-    return defaultBusSelection();
+    return normalizeSelection(defaultBusSelection());
   }
 }
 
 export function saveBusSelection(selection) {
-  if (!isValidSelection(selection)) {
+  const next = normalizeSelection({ ...selection });
+  if (!isValidSelection(next)) {
     throw new Error("invalid bus selection");
   }
-  localStorage.setItem(BUS_STORAGE_KEY, JSON.stringify(selection));
-  return selection;
+  localStorage.setItem(BUS_STORAGE_KEY, JSON.stringify(next));
+  return next;
+}
+
+/** Build a stable favorite id for route+stop+direction. */
+export function busFavoriteId({ route, stopId, bound, dirLabel }) {
+  return `${String(route).toUpperCase()}::${stopId}::${bound || dirLabel || ""}`;
+}
+
+export function toggleBusFavorite(selection, fav) {
+  const next = normalizeSelection(structuredClone(selection));
+  const id = fav.id || busFavoriteId(fav);
+  const idx = next.favorites.findIndex((f) => f.id === id);
+  if (idx >= 0) next.favorites.splice(idx, 1);
+  else {
+    next.favorites.push({
+      id,
+      route: fav.route,
+      stopId: fav.stopId,
+      nameTc: fav.nameTc,
+      dirLabel: fav.dirLabel,
+      bound: fav.bound || "",
+      serviceType: fav.serviceType || "1",
+      optionKey: fav.optionKey || "",
+      stopEntryId: fav.stopEntryId || "",
+    });
+  }
+  return saveBusSelection(next);
+}
+
+export function isBusFavorite(selection, favLike) {
+  const id = favLike.id || busFavoriteId(favLike);
+  return (selection?.favorites || []).some((f) => f.id === id);
 }
 
 export function clearBusSelection() {

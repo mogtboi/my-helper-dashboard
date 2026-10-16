@@ -1,43 +1,113 @@
 import { fetchMtrSchedule, destLabel } from "./mtrApi.js";
-import { MTR_LINES, lineByCode, stationOnLine } from "./mtrLines.js";
-import { saveMtrSelection } from "./mtrStore.js";
+import { MTR_LINES, lineByCode, stationOnLine, lineColor } from "./mtrLines.js";
+import {
+  saveMtrSelection,
+  toggleMtrFavorite,
+  isMtrFavorite,
+} from "./mtrStore.js";
 import { escapeHtml } from "./escapeHtml.js";
+import {
+  compactEtaCard,
+  freshnessBarHtml,
+  freshnessLabel,
+  makeRefreshController,
+} from "./transitUi.js";
+
+function rowsToItems(rows, limit = 3) {
+  return (rows || [])
+    .filter((r) => r && r.valid !== "N")
+    .slice(0, limit)
+    .map((r) => {
+      const mins =
+        r.ttnt === "0" || r.ttnt === 0
+          ? 0
+          : Number.isFinite(Number(r.ttnt))
+            ? Number(r.ttnt)
+            : null;
+      return {
+        mins,
+        label: mins === 0 ? "即將到達" : mins == null ? "—" : `${mins} 分鐘`,
+        dest: destLabel(r.dest),
+        plat: r.plat,
+      };
+    });
+}
 
 function formatNoEta(reason) {
   const r = (reason || "").trim();
-  if (r) {
-    return `<p class="muted">暫時冇班次</p><p class="eta-reason">${escapeHtml(r)}</p>`;
-  }
+  if (r) return `<p class="eta-reason">${escapeHtml(r)}</p>`;
   return `<p class="muted">暫時冇班次</p>`;
 }
 
-function formatRows(rows, limit = 4, reason = "") {
-  const valid = (rows || []).filter((r) => r && r.valid !== "N").slice(0, limit);
-  if (!valid.length) return formatNoEta(reason);
-  return `<ul class="eta-list">${valid
-    .map((r) => {
-      const mins = r.ttnt === "0" || r.ttnt === 0 ? "即將到達" : `${r.ttnt} 分鐘`;
-      const dest = escapeHtml(destLabel(r.dest));
-      const plat = r.plat ? ` · 月台 ${escapeHtml(r.plat)}` : "";
-      return `<li class="eta-item">
-        <span class="eta-dest">往${dest}${plat}</span>
-        <span class="eta-mins">${escapeHtml(mins)}</span>
-      </li>`;
-    })
-    .join("")}</ul>`;
-}
-
 /**
- * MTR panel: saved quick picks + line → direction → station browse/search.
+ * MTR panel: favorites chips, compact UP/DOWN cards, line colours, freshness.
  */
-export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelection, setSelectionExternal, onSelectionChange } = {}) {
+export function createMtr(
+  root,
+  titleEl,
+  { onStatus, onOpenSettings, setSelectionExternal, onSelectionChange } = {}
+) {
   let selection = null;
   let activeId = null;
   /** Browse state: { line, dir: 'UP'|'DOWN', station } */
   let browse = { line: null, dir: null, station: null };
   let mode = "saved"; // saved | browse
+  let mtrDirTab = "BOTH"; // BOTH | UP | DOWN
   let lastHtml = "";
   let timer = null;
+  let freshTimer = null;
+  let lastFetchAt = 0;
+  let refreshCtrl = null;
+
+  const persist = (next) => {
+    selection = next;
+    setSelectionExternal?.(next);
+    onSelectionChange?.(next);
+  };
+
+  const activeStation = () => {
+    if (mode === "browse" && browse.line && browse.station) {
+      return stationOnLine(browse.line, browse.station);
+    }
+    return selection?.stations?.find((s) => s.id === activeId) || null;
+  };
+
+  const paintFavChips = () => {
+    const row = root.querySelector("#mtr-fav-chips");
+    if (!row) return;
+    const favs = selection?.favorites || [];
+    if (!favs.length) {
+      row.innerHTML = `<span class="muted fav-empty">未有常用 · 撳 ★ 釘選呢個站</span>`;
+      return;
+    }
+    row.innerHTML = favs
+      .map((f) => {
+        const color = lineColor(f.line);
+        return `
+        <button type="button" class="fav-chip" data-fav="${escapeHtml(f.id)}"
+          aria-label="${escapeHtml(f.lineTc || f.line)} ${escapeHtml(f.nameTc)}">
+          <span class="fav-chip-route" style="background:${color}">${escapeHtml(f.line)}</span>
+          <span class="fav-chip-meta">${escapeHtml(f.nameTc)}</span>
+        </button>`;
+      })
+      .join("");
+  };
+
+  const updateStarBtn = () => {
+    const btn = root.querySelector("#mtr-star-btn");
+    if (!btn) return;
+    const sta = activeStation();
+    const on = sta && isMtrFavorite(selection, sta);
+    btn.setAttribute("aria-pressed", String(!!on));
+    btn.classList.toggle("is-pinned", !!on);
+    btn.textContent = on ? "★" : "☆";
+    btn.title = on ? "取消常用" : "加到常用";
+  };
+
+  const updateFreshLabel = () => {
+    const el = root.querySelector("#mtr-fresh");
+    if (el) el.textContent = freshnessLabel(lastFetchAt);
+  };
 
   const paintShell = () => {
     const stations = selection?.stations || [];
@@ -47,9 +117,14 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
     if (titleEl) titleEl.textContent = "港鐵";
 
     root.innerHTML = `
+      <div class="fav-chip-row" id="mtr-fav-chips" aria-label="常用港鐵"></div>
       <div class="bus-toolbar">
         <div class="stop-tabs mtr-tabs" role="tablist" aria-label="已存港鐵站"></div>
-        <button type="button" class="icon-btn settings-gear" id="mtr-settings-btn" aria-label="港鐵站設定">設定</button>
+        <div class="transit-toolbar-actions">
+          <button type="button" class="icon-btn star-btn" id="mtr-star-btn" aria-pressed="false" aria-label="釘選常用">☆</button>
+          ${freshnessBarHtml("mtr")}
+          <button type="button" class="icon-btn settings-gear" id="mtr-settings-btn" aria-label="港鐵站設定">設定</button>
+        </div>
       </div>
       <div id="mtr-body"><p class="muted">載入班次…</p></div>
 
@@ -62,16 +137,41 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       <p class="device-local-hint">港鐵站只存呢部機 · 公開 Next Train API</p>
     `;
 
+    paintFavChips();
+    root.querySelector("#mtr-fav-chips")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-fav]");
+      if (!btn) return;
+      const fav = (selection.favorites || []).find((f) => f.id === btn.dataset.fav);
+      if (!fav) return;
+      mode = "saved";
+      browse = { line: null, dir: null, station: null };
+      // Ensure station exists in selection for display
+      if (!selection.stations.some((s) => s.id === fav.id)) {
+        const meta = stationOnLine(fav.line, fav.sta);
+        if (meta) {
+          const next = structuredClone(selection);
+          next.stations.push(meta);
+          persist(saveMtrSelection(next));
+        }
+      }
+      activeId = fav.id;
+      paintShell();
+      refresh();
+    });
+
     const tabs = root.querySelector(".mtr-tabs");
     if (!stations.length) {
       tabs.innerHTML = `<span class="muted">未有已存站</span>`;
     } else {
       tabs.innerHTML = stations
-        .map(
-          (s) => `
-        <button type="button" class="tab" role="tab" data-mtr="${s.id}"
-          aria-selected="${mode === "saved" && s.id === activeId}">${s.nameTc}</button>`
-        )
+        .map((s) => {
+          const color = lineColor(s.line);
+          return `
+        <button type="button" class="tab mtr-sta-tab" role="tab" data-mtr="${s.id}"
+          aria-selected="${mode === "saved" && s.id === activeId}">
+          <span class="mtr-tab-dot" style="background:${color}"></span>${escapeHtml(s.nameTc)}
+        </button>`;
+        })
         .join("");
     }
 
@@ -81,10 +181,12 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       mode = "saved";
       activeId = btn.dataset.mtr;
       browse = { line: null, dir: null, station: null };
+      mtrDirTab = "BOTH";
       tabs.querySelectorAll(".tab").forEach((t) => {
         t.setAttribute("aria-selected", String(t.dataset.mtr === activeId));
       });
       paintWizard();
+      updateStarBtn();
       refresh();
     });
 
@@ -92,7 +194,26 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       onOpenSettings?.();
     });
 
+    root.querySelector("#mtr-star-btn").addEventListener("click", () => {
+      const sta = activeStation();
+      if (!sta) {
+        onStatus?.("未有可釘選嘅站");
+        return;
+      }
+      persist(toggleMtrFavorite(selection, sta));
+      paintFavChips();
+      updateStarBtn();
+      onStatus?.(isMtrFavorite(selection, sta) ? "已加到常用" : "已取消常用");
+    });
+
+    refreshCtrl = makeRefreshController({
+      button: root.querySelector("#mtr-refresh"),
+      onRefresh: () => refresh({ force: true }),
+    });
+
     paintWizard();
+    updateStarBtn();
+    updateFreshLabel();
   };
 
   const paintWizard = () => {
@@ -107,7 +228,8 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
           ${MTR_LINES.map(
             (l) => `
             <button type="button" class="place-chip" data-line="${l.code}">
-              ${l.nameTc}<small>${l.code}</small>
+              <span class="mtr-tab-dot" style="background:${lineColor(l.code)}"></span>
+              ${escapeHtml(l.nameTc)}<small>${l.code}</small>
             </button>`
           ).join("")}
         </div>
@@ -120,19 +242,21 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
         root.querySelectorAll(".mtr-tabs .tab").forEach((t) => t.setAttribute("aria-selected", "false"));
         paintWizard();
         const body = root.querySelector("#mtr-body");
-        if (body) body.innerHTML = `<p class="muted">已選 ${lineByCode(browse.line)?.nameTc} · 再揀方向</p>`;
+        if (body) {
+          body.innerHTML = `<p class="muted">已選 ${escapeHtml(lineByCode(browse.line)?.nameTc || "")} · 再揀方向</p>`;
+        }
       });
       return;
     }
 
     if (!browse.dir) {
       box.innerHTML = `
-        <p class="wizard-step">② ${line.nameTc} · 揀方向
+        <p class="wizard-step">② ${escapeHtml(line.nameTc)} · 揀方向
           <button type="button" class="ghost-btn" id="mtr-wiz-back-line">返回揀綫</button>
         </p>
         <div class="add-variants">
-          <button type="button" class="station-btn" data-dir="UP">${line.upLabel}</button>
-          <button type="button" class="station-btn" data-dir="DOWN">${line.downLabel}</button>
+          <button type="button" class="station-btn" data-dir="UP">${escapeHtml(line.upLabel)}</button>
+          <button type="button" class="station-btn" data-dir="DOWN">${escapeHtml(line.downLabel)}</button>
         </div>
       `;
       box.querySelector("#mtr-wiz-back-line").addEventListener("click", () => {
@@ -152,7 +276,7 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
 
     const dirLabel = browse.dir === "UP" ? line.upLabel : line.downLabel;
     box.innerHTML = `
-      <p class="wizard-step">③ ${line.nameTc} · ${dirLabel} · 揀站
+      <p class="wizard-step">③ ${escapeHtml(line.nameTc)} · ${escapeHtml(dirLabel)} · 揀站
         <button type="button" class="ghost-btn" id="mtr-wiz-back-dir">返回方向</button>
       </p>
       <div class="place-grid mtr-sta-grid">
@@ -160,7 +284,7 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
           .map(
             (s) => `
           <button type="button" class="place-chip" data-sta="${s.sta}"
-            aria-pressed="${browse.station === s.sta}">${s.nameTc}</button>`
+            aria-pressed="${browse.station === s.sta}">${escapeHtml(s.nameTc)}</button>`
           )
           .join("")}
       </div>
@@ -177,6 +301,7 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       mode = "browse";
       root.querySelectorAll(".mtr-tabs .tab").forEach((t) => t.setAttribute("aria-selected", "false"));
       paintWizard();
+      updateStarBtn();
       refresh();
     });
     box.querySelector("#mtr-save-browse")?.addEventListener("click", () => {
@@ -185,10 +310,7 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       const next = structuredClone(selection);
       if (!next.stations.some((s) => s.id === meta.id)) {
         next.stations.push(meta);
-        saveMtrSelection(next);
-        selection = next;
-        setSelectionExternal?.(next);
-        onSelectionChange?.(next);
+        persist(saveMtrSelection(next));
         activeId = meta.id;
         mode = "saved";
         paintShell();
@@ -200,28 +322,93 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
     });
   };
 
-  const refresh = async () => {
+  const dirTabsHtml = (line, active) => `
+    <div class="mtr-dir-tabs" role="tablist" aria-label="方向">
+      <button type="button" class="mtr-dir-tab" data-dir-tab="BOTH" aria-selected="${active === "BOTH"}">兩邊</button>
+      <button type="button" class="mtr-dir-tab" data-dir-tab="UP" aria-selected="${active === "UP"}">${escapeHtml(line?.upLabel || "上行")}</button>
+      <button type="button" class="mtr-dir-tab" data-dir-tab="DOWN" aria-selected="${active === "DOWN"}">${escapeHtml(line?.downLabel || "下行")}</button>
+    </div>`;
+
+  const renderDirCards = ({ line, stationName, up, down, reason, statusFailed, delayed, color }) => {
+    if (statusFailed) {
+      return `${dirTabsHtml(line, mtrDirTab)}${formatNoEta(reason)}`;
+    }
+    const notice =
+      delayed && reason ? `<p class="eta-reason">${escapeHtml(reason)}</p>` : "";
+    const upItems = rowsToItems(up);
+    const downItems = rowsToItems(down);
+    const upDest = upItems[0]?.dest || destFromLabel(line?.upLabel);
+    const downDest = downItems[0]?.dest || destFromLabel(line?.downLabel);
+    const upPlat = upItems[0]?.plat;
+    const downPlat = downItems[0]?.plat;
+
+    const upCard = compactEtaCard({
+      routeBadge: line?.code || "",
+      badgeColor: color,
+      dest: upDest,
+      stopName: `${stationName} · ${line?.upLabel || "上行"}`,
+      items: upItems,
+      reason: !upItems.length ? reason : "",
+      plat: upPlat,
+    });
+    const downCard = compactEtaCard({
+      routeBadge: line?.code || "",
+      badgeColor: color,
+      dest: downDest,
+      stopName: `${stationName} · ${line?.downLabel || "下行"}`,
+      items: downItems,
+      reason: !downItems.length ? reason : "",
+      plat: downPlat,
+    });
+
+    let cards = "";
+    if (mtrDirTab === "UP") cards = upCard;
+    else if (mtrDirTab === "DOWN") cards = downCard;
+    else cards = `<div class="mtr-eta-pair">${upCard}${downCard}</div>`;
+
+    return `${dirTabsHtml(line, mtrDirTab)}${notice}${cards}`;
+  };
+
+  const destFromLabel = (label) => String(label || "").replace(/^往\s*/, "") || "—";
+
+  const bindDirTabs = (body) => {
+    body.querySelector(".mtr-dir-tabs")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-dir-tab]");
+      if (!btn) return;
+      mtrDirTab = btn.dataset.dirTab;
+      refresh({ force: true });
+    });
+  };
+
+  const refresh = async ({ force = false } = {}) => {
     const body = root.querySelector("#mtr-body");
     if (!body || !selection) return;
 
     if (mode === "browse" && browse.line && browse.dir && browse.station) {
       const line = lineByCode(browse.line);
       const staMeta = line?.stations.find((s) => s.sta === browse.station);
-      const dirLabel = browse.dir === "UP" ? line?.upLabel : line?.downLabel;
       try {
         const sched = await fetchMtrSchedule(browse.line, browse.station);
         const { up = [], down = [], reason, statusFailed, delayed } = sched || {};
         const rows = browse.dir === "UP" ? up : down;
-        const notice =
-          delayed && reason
-            ? `<p class="eta-reason">${escapeHtml(reason)}</p>`
-            : "";
-        lastHtml = `
-          <div class="eta-dir">${escapeHtml(line?.nameTc || "")} · ${escapeHtml(staMeta?.nameTc || browse.station)} · ${escapeHtml(dirLabel || "")}</div>
-          ${notice}
-          ${statusFailed ? formatNoEta(reason) : formatRows(rows, 4, reason)}
-        `;
+        const items = rowsToItems(rows);
+        const color = lineColor(browse.line);
+        lastHtml = compactEtaCard({
+          routeBadge: line?.code || browse.line,
+          badgeColor: color,
+          dest: items[0]?.dest || destFromLabel(browse.dir === "UP" ? line?.upLabel : line?.downLabel),
+          stopName: staMeta?.nameTc || browse.station,
+          items,
+          reason: statusFailed || !items.length ? reason : "",
+          plat: items[0]?.plat,
+        });
+        if (delayed && reason) {
+          lastHtml = `<p class="eta-reason">${escapeHtml(reason)}</p>${lastHtml}`;
+        }
         body.innerHTML = lastHtml;
+        lastFetchAt = Date.now();
+        updateFreshLabel();
+        updateStarBtn();
         onStatus?.("港鐵已更新");
       } catch (e) {
         body.innerHTML = `<p class="error">港鐵暫無資料：${escapeHtml(e.message || e)}</p>`;
@@ -239,29 +426,22 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
       const sched = await fetchMtrSchedule(station.line, station.sta);
       const { up = [], down = [], reason, statusFailed, delayed } = sched || {};
       const line = lineByCode(station.line);
-      const upHas = (up || []).some((r) => r && r.valid !== "N");
-      const downHas = (down || []).some((r) => r && r.valid !== "N");
-      const head = `${escapeHtml(station.lineTc || station.line)} · ${escapeHtml(station.nameTc)}`;
-      const notice =
-        delayed && reason
-          ? `<p class="eta-reason">${escapeHtml(reason)}</p>`
-          : "";
-      if (statusFailed) {
-        lastHtml = `
-          <div class="eta-dir">${head}</div>
-          ${formatNoEta(reason)}
-        `;
-      } else {
-        lastHtml = `
-          ${notice}
-          <div class="eta-dir">${head} · ${escapeHtml(line?.upLabel || "上行")}</div>
-          ${formatRows(up, 4, !upHas ? reason : "")}
-          <div style="height:0.55rem"></div>
-          <div class="eta-dir">${head} · ${escapeHtml(line?.downLabel || "下行")}</div>
-          ${formatRows(down, 4, !downHas ? (upHas ? reason : "") : "")}
-        `;
-      }
+      const color = lineColor(station.line);
+      lastHtml = renderDirCards({
+        line,
+        stationName: station.nameTc,
+        up,
+        down,
+        reason,
+        statusFailed,
+        delayed,
+        color,
+      });
       body.innerHTML = lastHtml;
+      bindDirTabs(body);
+      lastFetchAt = Date.now();
+      updateFreshLabel();
+      updateStarBtn();
       onStatus?.("港鐵已更新");
     } catch (e) {
       body.innerHTML = lastHtml
@@ -278,18 +458,24 @@ export function createMtr(root, titleEl, { onStatus, onOpenSettings, getSelectio
   };
 
   const onVis = () => {
-    if (document.visibilityState === "visible") refresh();
+    if (document.visibilityState !== "visible") return;
+    if (!lastFetchAt || Date.now() - lastFetchAt > 20_000) {
+      refresh({ force: true });
+    }
   };
 
   const start = (initial) => {
     setSelection(initial);
     if (timer) clearInterval(timer);
-    timer = setInterval(refresh, 30 * 1000);
+    if (freshTimer) clearInterval(freshTimer);
+    timer = setInterval(() => refresh(), 30 * 1000);
+    freshTimer = setInterval(updateFreshLabel, 1000);
     document.addEventListener("visibilitychange", onVis);
   };
 
   const destroy = () => {
     if (timer) clearInterval(timer);
+    if (freshTimer) clearInterval(freshTimer);
     document.removeEventListener("visibilitychange", onVis);
   };
 

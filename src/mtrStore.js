@@ -20,6 +20,16 @@ export function defaultMtrSelection() {
   };
 }
 
+function isValidFavorite(f) {
+  return (
+    f &&
+    typeof f.id === "string" &&
+    typeof f.line === "string" &&
+    typeof f.sta === "string" &&
+    typeof f.nameTc === "string"
+  );
+}
+
 function isValid(data) {
   return (
     data &&
@@ -32,26 +42,56 @@ function isValid(data) {
         typeof s.line === "string" &&
         typeof s.sta === "string" &&
         typeof s.nameTc === "string"
-    )
+    ) &&
+    (data.favorites == null ||
+      (Array.isArray(data.favorites) && data.favorites.every(isValidFavorite)))
   );
+}
+
+function normalize(data) {
+  if (!Array.isArray(data.favorites)) data.favorites = [];
+  return data;
 }
 
 export function loadMtrSelection() {
   try {
     const raw = localStorage.getItem(MTR_STORAGE_KEY);
-    if (!raw) return defaultMtrSelection();
+    if (!raw) return normalize(defaultMtrSelection());
     const parsed = JSON.parse(raw);
-    if (!isValid(parsed)) return defaultMtrSelection();
-    return parsed;
+    if (!isValid(parsed)) return normalize(defaultMtrSelection());
+    return normalize(parsed);
   } catch {
-    return defaultMtrSelection();
+    return normalize(defaultMtrSelection());
   }
 }
 
 export function saveMtrSelection(selection) {
-  if (!isValid(selection)) throw new Error("invalid mtr selection");
-  localStorage.setItem(MTR_STORAGE_KEY, JSON.stringify(selection));
-  return selection;
+  const next = normalize({ ...selection });
+  if (!isValid(next)) throw new Error("invalid mtr selection");
+  localStorage.setItem(MTR_STORAGE_KEY, JSON.stringify(next));
+  return next;
+}
+
+export function toggleMtrFavorite(selection, station) {
+  const next = normalize(structuredClone(selection));
+  const id = station.id || `${station.line}-${station.sta}`;
+  const idx = next.favorites.findIndex((f) => f.id === id);
+  if (idx >= 0) next.favorites.splice(idx, 1);
+  else {
+    next.favorites.push({
+      id,
+      line: station.line,
+      sta: station.sta,
+      nameTc: station.nameTc,
+      lineTc: station.lineTc || "",
+    });
+  }
+  return saveMtrSelection(next);
+}
+
+export function isMtrFavorite(selection, stationLike) {
+  const id = stationLike.id || `${stationLike.line}-${stationLike.sta}`;
+  return (selection?.favorites || []).some((f) => f.id === id);
 }
 
 export function clearMtrSelection() {

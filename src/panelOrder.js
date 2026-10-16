@@ -135,11 +135,15 @@ export function enablePanelReorder(stackEl, { onReorder } = {}) {
   };
 
   const onPointerDown = (e) => {
+    // Drag ONLY from ⋮⋮ handle — scrolling ETA / panel body must not reorder
     const handle = e.target.closest("[data-drag-handle]");
     if (!handle || !stackEl.contains(handle)) return;
+    // Ignore if the event originated inside interactive transit content
+    if (e.target.closest(".eta-card, .fav-chip-row, .eta-list, .route-option-list")) return;
     const panel = handle.closest("[data-panel-id]");
     if (!panel) return;
     e.preventDefault();
+    e.stopPropagation();
 
     dragging = panel;
     const rect = panel.getBoundingClientRect();
