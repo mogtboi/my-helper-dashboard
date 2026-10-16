@@ -3,10 +3,12 @@ import {
   fetchRouteVariants,
   fetchRouteStops,
   mapStopsWithNames,
+  findOppositeDirection,
   KMB_BASE,
 } from "./kmbApi.js";
 import {
   selectionRoutesLabel,
+  saveBusSelection,
   toggleBusFavorite,
   isBusFavorite,
 } from "./busStore.js";
@@ -100,6 +102,9 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings, onSelection
   let lastFetchAt = 0;
   let groups = new Map();
   let refreshCtrl = null;
+  let refreshSeq = 0;
+  let reverseLock = false;
+  let reverseBound = false;
 
   const persist = (next) => {
     selection = next;
@@ -273,10 +278,6 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings, onSelection
       onStatus?.(isBusFavorite(selection, like) ? "已加到常用" : "已取消常用");
     });
 
-    root.querySelector("#bus-reverse-btn").addEventListener("click", () => {
-      reverseDirection();
-    });
-
     refreshCtrl = makeRefreshController({
       button: root.querySelector("#bus-refresh"),
       onRefresh: () => refresh({ force: true }),
@@ -321,26 +322,144 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings, onSelection
     refresh();
   };
 
-  const reverseDirection = () => {
-    if (mode === "search" || mode === "other") {
-      onStatus?.("搜尋／其他站唔支援調轉；請用已存站");
-      return;
-    }
-    const options = groups.get(activeRoute) || [];
-    const opt = options.find((o) => o.key === activeOptionKey);
-    if (!opt) return;
-    const siblings = options.filter((o) => o.stop.id === opt.stop.id);
-    if (siblings.length < 2) {
-      onStatus?.("呢個站未設定另一方向");
-      return;
-    }
-    const idx = siblings.findIndex((o) => o.key === opt.key);
-    const next = siblings[(idx + 1) % siblings.length];
-    activeOptionKey = next.key;
+  const applySavedDirection = (opt) => {
+    activeOptionKey = opt.key;
+    mode = "saved";
+    browsePick = null;
     paintOptions();
     updateStarBtn();
-    refresh({ force: true });
-    onStatus?.(`已調轉：${next.dir.label}`);
+    const body = root.querySelector("#eta-body");
+    if (body) {
+      lastHtml = compactEtaCard({
+        routeBadge: opt.stop.route,
+        dest: destFromDirLabel(opt.dir.label),
+        stopName: opt.stop.nameTc,
+        items: [],
+        reason: "載入緊…",
+        extraActions: reverseControlHtml(),
+      });
+      body.innerHTML = lastHtml;
+    }
+  };
+
+  const reverseDirection = async () => {
+    if (reverseLock) return;
+    reverseLock = true;
+    onStatus?.("調轉緊…");
+    try {
+      if (mode === "saved" && activeOptionKey && activeOptionKey !== "__other__") {
+        const options = groups.get(activeRoute) || [];
+        const opt = options.find((o) => o.key === activeOptionKey);
+        if (!opt) {
+          onStatus?.("未有方向可調轉");
+          return;
+        }
+        const siblings = options.filter((o) => o.stop.id === opt.stop.id);
+        if (siblings.length >= 2) {
+          const idx = siblings.findIndex((o) => o.key === opt.key);
+          const next = siblings[(idx + 1) % siblings.length];
+          applySavedDirection(next);
+          await refresh({ force: true });
+          onStatus?.(`已調轉：${next.dir.label}`);
+          return;
+        }
+        const serviceType = opt.dir.serviceType || opt.stop.serviceType || "1";
+        const bound = opt.dir.bound || "outbound";
+        const variants = await fetchRouteVariants(opt.stop.route);
+        const other = variants.find(
+          (v) => v.serviceType === String(serviceType) && v.bound !== bound
+        );
+        const opp = await findOppositeDirection(
+          opt.stop.route,
+          serviceType,
+          bound,
+          opt.stop.nameTc,
+          other?.destTc
+        );
+        if (!opp || opp.stopId === opt.dir.stopId) {
+          onStatus?.("搵唔到反方向車站");
+          return;
+        }
+        const nextSel = structuredClone(selection);
+        const stop = nextSel.stops.find((s) => s.id === opt.stop.id);
+        if (!stop) {
+          onStatus?.("搵唔到反方向車站");
+          return;
+        }
+        if (!stop.directions.some((d) => d.stopId === opp.stopId && d.bound === opp.bound)) {
+          stop.directions.push({
+            label: opp.label,
+            stopId: opp.stopId,
+            bound: opp.bound,
+            serviceType: opp.serviceType || serviceType,
+          });
+          persist(saveBusSelection(nextSel));
+        }
+        groups = buildRouteGroups(selection);
+        const flipped = (groups.get(activeRoute) || []).find(
+          (o) => o.stop.id === stop.id && o.dir.stopId === opp.stopId && (o.dir.bound || "") === (opp.bound || "")
+        );
+        if (!flipped) {
+          onStatus?.("搵唔到反方向車站");
+          return;
+        }
+        applySavedDirection(flipped);
+        await refresh({ force: true });
+        onStatus?.(`已調轉：${flipped.dir.label}`);
+        return;
+      }
+
+      if (browsePick) {
+        const serviceType = browsePick.serviceType || "1";
+        const bound = browsePick.bound || "outbound";
+        const variants = await fetchRouteVariants(browsePick.route);
+        const other = variants.find(
+          (v) => v.serviceType === String(serviceType) && v.bound !== bound
+        );
+        const opp = await findOppositeDirection(
+          browsePick.route,
+          serviceType,
+          bound,
+          browsePick.nameTc,
+          other?.destTc
+        );
+        if (!opp) {
+          onStatus?.("搵唔到反方向車站");
+          return;
+        }
+        browsePick = {
+          ...browsePick,
+          stopId: opp.stopId,
+          label: `${browsePick.nameTc} · ${opp.label}`,
+          destTc: other?.destTc || destFromDirLabel(opp.label),
+          bound: opp.bound,
+          serviceType: opp.serviceType || serviceType,
+        };
+        await refresh({ force: true });
+        onStatus?.(`已調轉：${opp.label}`);
+        return;
+      }
+
+      onStatus?.("未有方向可調轉");
+    } catch (err) {
+      onStatus?.(`調轉失敗：${err.message || err}`);
+    } finally {
+      reverseLock = false;
+    }
+  };
+
+  const bindReverseOnce = () => {
+    if (reverseBound) return;
+    reverseBound = true;
+    // One delegated tap path. Survives innerHTML swaps and ignores a second click
+    // from the same gesture (which would flip the direction straight back).
+    root.addEventListener("click", (e) => {
+      const btn = e.target.closest("#bus-reverse-btn, [data-eta-reverse]");
+      if (!btn || !root.contains(btn)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      reverseDirection();
+    });
   };
 
   const paintOptions = () => {
@@ -565,12 +684,6 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings, onSelection
       </button>
     </div>`;
 
-  const bindEtaActions = (body) => {
-    body.querySelector("[data-eta-reverse]")?.addEventListener("click", () => {
-      reverseDirection();
-    });
-  };
-
   const renderError = (msg) => {
     const body = root.querySelector("#eta-body");
     if (!body) return;
@@ -582,18 +695,19 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings, onSelection
   const refresh = async ({ force = false } = {}) => {
     const body = root.querySelector("#eta-body");
     if (!body || !selection) return;
+    const seq = ++refreshSeq;
 
-    const paintCard = (route, dest, stopName, items, reason, showReverse) => {
+    const paintCard = (route, dest, stopName, items, reason) => {
+      if (seq !== refreshSeq) return;
       lastHtml = compactEtaCard({
         routeBadge: route,
         dest,
         stopName,
         items,
         reason,
-        extraActions: showReverse ? reverseControlHtml() : "",
+        extraActions: reverseControlHtml(),
       });
       body.innerHTML = lastHtml;
-      if (showReverse) bindEtaActions(body);
       lastFetchAt = Date.now();
       updateFreshLabel();
       updateStarBtn();
@@ -606,14 +720,16 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings, onSelection
           browsePick.route,
           browsePick.serviceType || "1"
         );
+        if (seq !== refreshSeq) return;
         const dest =
           browsePick.destTc ||
           destFromDirLabel(browsePick.label?.split("·").pop()?.trim() || "") ||
           items[0]?.dest ||
           "—";
-        paintCard(browsePick.route, dest, browsePick.nameTc, items, reason, false);
+        paintCard(browsePick.route, dest, browsePick.nameTc, items, reason);
         onStatus?.("巴士已更新");
       } catch (e) {
+        if (seq !== refreshSeq) return;
         renderError(e.message || "網絡錯誤");
         onStatus?.("巴士更新失敗");
       }
@@ -636,11 +752,12 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings, onSelection
     try {
       const serviceType = dir.serviceType || stop.serviceType || "1";
       const { items, reason } = await loadEtaRows(dir.stopId, stop.route, serviceType);
+      if (seq !== refreshSeq) return;
       const dest = destFromDirLabel(dir.label) || items[0]?.dest || "—";
-      const canReverse = options.filter((o) => o.stop.id === stop.id).length >= 2;
-      paintCard(stop.route, dest, stop.nameTc, items, reason, canReverse);
+      paintCard(stop.route, dest, stop.nameTc, items, reason);
       onStatus?.("巴士已更新");
     } catch (e) {
+      if (seq !== refreshSeq) return;
       renderError(e.message || "網絡錯誤");
       onStatus?.("巴士更新失敗");
     }
@@ -660,6 +777,7 @@ export function createBus(root, titleEl, { onStatus, onOpenSettings, onSelection
   };
 
   const start = (initial) => {
+    bindReverseOnce();
     setSelection(initial);
     if (timer) clearInterval(timer);
     if (freshTimer) clearInterval(freshTimer);

@@ -160,11 +160,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  touch-action: pan-y;
+  touch-action: manipulation;
 }
 
 .panel {
-  touch-action: pan-y;
+  touch-action: manipulation;
 }
 
 .panel-head {
@@ -1951,22 +1951,33 @@ body.drawer-open {
 
 .reverse-cta {
   appearance: none;
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  min-height: 2.25rem;
-  min-width: 2.25rem;
-  padding: 0.35rem 0.85rem;
+  min-height: 44px;
+  min-width: 44px;
+  width: 100%;
+  padding: 0.45rem 0.85rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(var(--accent-rgb), 0.4);
   background: rgba(var(--accent-rgb), 0.12);
   color: var(--ink);
   font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reverse-btn {
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
 }
 
 .mtr-eta-pair {
