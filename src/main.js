@@ -26,11 +26,12 @@ import { createDrawer } from "./drawer.js";
 
 const app = document.querySelector("#app");
 
-const panelShell = (id, titleId, titleText, bodyId, extraClass = "") => `
+const panelShell = (id, titleId, titleText, bodyId, extraClass = "", actionsId = "") => `
   <section class="panel ${extraClass}" data-panel-id="${id}" aria-labelledby="${titleId}">
     <div class="panel-head">
       <button type="button" class="drag-handle" data-drag-handle aria-label="拖曳調整${titleText}位置" title="上下拖曳排序">⋮⋮</button>
       <h2 id="${titleId}">${titleText}</h2>
+      ${actionsId ? `<div class="panel-head-actions" id="${actionsId}"></div>` : ""}
     </div>
     <div id="${bodyId}"></div>
   </section>
@@ -63,7 +64,7 @@ app.innerHTML = `
 
       ${panelShell("weather", "weather-title", "天氣", "weather-root")}
       ${panelShell("holiday", "holiday-title", "公眾假期", "holiday-root")}
-      ${panelShell("bus", "bus-title", "巴士", "bus-root")}
+      ${panelShell("bus", "bus-title", "巴士", "bus-root", "panel-bus", "bus-actions")}
       ${panelShell("mtr", "mtr-title", "港鐵", "mtr-root")}
       ${panelShell("radio", "radio-title", "電台", "radio-root")}
     </div>
@@ -195,7 +196,7 @@ const bus = createBus(
   document.querySelector("#bus-title"),
   {
     onStatus: setNet,
-    onOpenSettings: () => settings.open("bus"),
+    actionsEl: document.querySelector("#bus-actions"),
     onSelectionPersist: (next) => {
       busSelection = next;
     },
@@ -222,14 +223,6 @@ const tco = createTco(document.querySelector("#tco-root"));
 
 const settings = createAppSettings({
   overlayRoot: overlay,
-  getBusSelection: () => busSelection,
-  setBusSelection: (next) => {
-    busSelection = next;
-  },
-  onBusChange: (next) => {
-    bus.setSelection(next);
-    setNet("巴士設定已更新（本機）");
-  },
   getWeatherPlace: () => weatherPlace,
   onWeatherPlaceChange: (place) => {
     weatherPlace = place;

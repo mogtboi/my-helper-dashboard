@@ -1,151 +1,178 @@
-/** Device-local bus selection. Never sent to a server. */
+/** Device-local bus watches. Never sent to a server. Coordinates are never stored. */
 export const BUS_STORAGE_KEY = "lam-tsuen-dashboard.bus.v1";
 
-/** Default sample watches (64K area stops). Product name is separate. */
-export function defaultBusSelection() {
+function watch(route, bound, serviceType, stopId, stopName, destName) {
   return {
-    version: 1,
-    stops: [
-      {
-        id: "64k-kau-liu-ha",
-        route: "64K",
-        serviceType: "1",
-        nameTc: "較寮下",
-        nameEn: "Kau Liu Ha",
-        directions: [
-          {
-            label: "往元朗",
-            stopId: "0B786699889F0AEB",
-            bound: "inbound",
-          },
-          {
-            label: "往大埔墟",
-            stopId: "DC6749D20ED5C948",
-            bound: "outbound",
-          },
-        ],
-      },
-      {
-        id: "64k-hang-ha-po",
-        route: "64K",
-        serviceType: "1",
-        nameTc: "坑下甫",
-        nameEn: "Hang Ha Po",
-        directions: [
-          {
-            label: "往元朗",
-            stopId: "A53F6592C4173B4E",
-            bound: "inbound",
-          },
-          {
-            label: "往大埔墟",
-            stopId: "BCC83D8C953DC504",
-            bound: "outbound",
-          },
-        ],
-      },
-    ],
+    id: `${route}::${stopId}::${bound}`,
+    route,
+    bound,
+    serviceType,
+    stopId,
+    stopName,
+    destName,
   };
 }
 
-function isValidFavorite(f) {
+/** Default 64K watches (較寮下／坑下甫，兩向). */
+export function defaultBusItems() {
+  return [
+    watch("64K", "inbound", "1", "0B786699889F0AEB", "較寮下", "元朗"),
+    watch("64K", "outbound", "1", "DC6749D20ED5C948", "較寮下", "大埔墟"),
+    watch("64K", "inbound", "1", "A53F6592C4173B4E", "坑下甫", "元朗"),
+    watch("64K", "outbound", "1", "BCC83D8C953DC504", "坑下甫", "大埔墟"),
+  ];
+}
+
+export function defaultBusSelection() {
+  const items = defaultBusItems();
+  return { version: 2, items, activeId: items[0].id };
+}
+
+function destFromLabel(label) {
+  return String(label || "")
+    .replace(/^往\s*/, "")
+    .replace(/^.*?·\s*/, "")
+    .trim();
+}
+
+function isItem(it) {
   return (
-    f &&
-    typeof f.id === "string" &&
-    typeof f.route === "string" &&
-    typeof f.stopId === "string" &&
-    typeof f.nameTc === "string" &&
-    typeof f.dirLabel === "string"
+    it &&
+    typeof it.route === "string" &&
+    typeof it.stopId === "string" &&
+    typeof it.stopName === "string" &&
+    typeof it.bound === "string"
   );
 }
 
-function isValidSelection(data) {
-  return (
-    data &&
-    data.version === 1 &&
-    Array.isArray(data.stops) &&
-    data.stops.every(
-      (s) =>
-        s &&
-        typeof s.id === "string" &&
-        typeof s.route === "string" &&
-        typeof s.nameTc === "string" &&
-        Array.isArray(s.directions) &&
-        s.directions.length > 0 &&
-        s.directions.every((d) => d && d.stopId && d.label)
-    ) &&
-    (data.favorites == null ||
-      (Array.isArray(data.favorites) && data.favorites.every(isValidFavorite)))
-  );
+function dedupe(items) {
+  const seen = new Set();
+  const out = [];
+  for (const it of items) {
+    if (!isItem(it)) continue;
+    const id = it.id || `${it.route}::${it.stopId}::${it.bound || ""}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      route: String(it.route).toUpperCase(),
+      bound: it.bound || "outbound",
+      serviceType: String(it.serviceType || "1"),
+      stopId: it.stopId,
+      stopName: it.stopName,
+      destName: it.destName || "",
+    });
+  }
+  return out;
 }
 
-function normalizeSelection(data) {
-  if (!Array.isArray(data.favorites)) data.favorites = [];
-  return data;
+/** Expand legacy stop+directions and ★ bookmarks into one list. */
+export function migrateBusSelection(data) {
+  if (data?.version === 2 && Array.isArray(data.items)) {
+    const items = dedupe(data.items);
+    const activeId = items.some((i) => i.id === data.activeId) ? data.activeId : items[0]?.id || null;
+    return { version: 2, items, activeId };
+  }
+  const items = [];
+  for (const stop of data?.stops || []) {
+    for (const dir of stop.directions || []) {
+      if (!dir?.stopId) continue;
+      items.push(
+        watch(
+          stop.route,
+          dir.bound || "outbound",
+          String(dir.serviceType || stop.serviceType || "1"),
+          dir.stopId,
+          stop.nameTc || dir.nameTc || dir.stopId,
+          dir.destName || destFromLabel(dir.label)
+        )
+      );
+    }
+  }
+  for (const fav of data?.favorites || []) {
+    if (!fav?.stopId || !fav?.route) continue;
+    items.push(
+      watch(
+        fav.route,
+        fav.bound || "outbound",
+        String(fav.serviceType || "1"),
+        fav.stopId,
+        fav.nameTc || fav.stopName || fav.stopId,
+        fav.destName || destFromLabel(fav.dirLabel)
+      )
+    );
+  }
+  const cleaned = dedupe(items);
+  if (!cleaned.length) return defaultBusSelection();
+  return { version: 2, items: cleaned, activeId: cleaned[0].id };
 }
 
-/** Load from this browser only. Other phones start from defaults. */
 export function loadBusSelection() {
   try {
     const raw = localStorage.getItem(BUS_STORAGE_KEY);
-    if (!raw) return normalizeSelection(defaultBusSelection());
+    if (!raw) return defaultBusSelection();
     const parsed = JSON.parse(raw);
-    if (!isValidSelection(parsed)) return normalizeSelection(defaultBusSelection());
-    if (parsed.stops.length === 0) return normalizeSelection(defaultBusSelection());
-    return normalizeSelection(parsed);
+    const next = migrateBusSelection(parsed);
+    if (parsed?.version !== 2) {
+      localStorage.setItem(BUS_STORAGE_KEY, JSON.stringify(next));
+    }
+    return next;
   } catch {
-    return normalizeSelection(defaultBusSelection());
+    return defaultBusSelection();
   }
 }
 
 export function saveBusSelection(selection) {
-  const next = normalizeSelection({ ...selection });
-  if (!isValidSelection(next)) {
-    throw new Error("invalid bus selection");
-  }
+  const items = dedupe(selection?.items || []);
+  const activeId = items.some((i) => i.id === selection?.activeId)
+    ? selection.activeId
+    : items[0]?.id || null;
+  const next = { version: 2, items, activeId };
   localStorage.setItem(BUS_STORAGE_KEY, JSON.stringify(next));
   return next;
 }
 
-/** Build a stable favorite id for route+stop+direction. */
-export function busFavoriteId({ route, stopId, bound, dirLabel }) {
-  return `${String(route).toUpperCase()}::${stopId}::${bound || dirLabel || ""}`;
+export function clearBusSelection() {
+  const next = defaultBusSelection();
+  localStorage.setItem(BUS_STORAGE_KEY, JSON.stringify(next));
+  return next;
 }
 
-export function toggleBusFavorite(selection, fav) {
-  const next = normalizeSelection(structuredClone(selection));
-  const id = fav.id || busFavoriteId(fav);
-  const idx = next.favorites.findIndex((f) => f.id === id);
-  if (idx >= 0) next.favorites.splice(idx, 1);
-  else {
-    next.favorites.push({
+export function watchId(item) {
+  return `${String(item.route).toUpperCase()}::${item.stopId}::${item.bound || ""}`;
+}
+
+export function isPinned(selection, item) {
+  const id = item.id || watchId(item);
+  return (selection?.items || []).some((i) => i.id === id);
+}
+
+export function togglePinned(selection, item) {
+  const next = structuredClone(selection);
+  next.items = dedupe(next.items || []);
+  const id = item.id || watchId(item);
+  const idx = next.items.findIndex((i) => i.id === id);
+  if (idx >= 0) {
+    next.items.splice(idx, 1);
+    if (next.activeId === id) next.activeId = next.items[0]?.id || null;
+  } else {
+    next.items.push({
       id,
-      route: fav.route,
-      stopId: fav.stopId,
-      nameTc: fav.nameTc,
-      dirLabel: fav.dirLabel,
-      bound: fav.bound || "",
-      serviceType: fav.serviceType || "1",
-      optionKey: fav.optionKey || "",
-      stopEntryId: fav.stopEntryId || "",
+      route: String(item.route).toUpperCase(),
+      bound: item.bound || "outbound",
+      serviceType: String(item.serviceType || "1"),
+      stopId: item.stopId,
+      stopName: item.stopName,
+      destName: item.destName || "",
     });
+    next.activeId = id;
   }
   return saveBusSelection(next);
 }
 
-export function isBusFavorite(selection, favLike) {
-  const id = favLike.id || busFavoriteId(favLike);
-  return (selection?.favorites || []).some((f) => f.id === id);
-}
-
-export function clearBusSelection() {
-  localStorage.removeItem(BUS_STORAGE_KEY);
-  return defaultBusSelection();
-}
-
 export function selectionRoutesLabel(selection) {
-  const routes = [...new Set((selection.stops || []).map((s) => s.route))];
-  return routes.length ? routes.join(" · ") : "";
+  const routes = [...new Set((selection?.items || []).map((s) => s.route))];
+  return routes.join(" · ");
 }
 
 export function makeStopId(route, stopId) {

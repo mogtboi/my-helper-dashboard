@@ -30,11 +30,41 @@ export async function fetchRouteStops(route, bound, serviceType) {
 
 export async function fetchStopName(stopId) {
   const json = await getJson(`${BASE}/stop/${encodeURIComponent(stopId)}`);
+  const lat = Number(json.data?.lat);
+  const lng = Number(json.data?.long);
   return {
     stopId,
     nameTc: json.data?.name_tc || stopId,
     nameEn: json.data?.name_en || "",
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
   };
+}
+
+/** Great-circle distance in metres. Caller must keep coordinates in memory only. */
+export function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+/** Rank stops nearest to a point. Does not persist or transmit the point. */
+export function rankStopsByDistance(stops, lat, lng) {
+  return (stops || [])
+    .map((s) => {
+      const slat = Number(s.lat);
+      const slng = Number(s.lng);
+      if (!Number.isFinite(slat) || !Number.isFinite(slng) || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return { ...s, meters: Number.POSITIVE_INFINITY };
+      }
+      return { ...s, meters: haversineMeters(lat, lng, slat, slng) };
+    })
+    .sort((a, b) => a.meters - b.meters);
 }
 
 /** Parallel name lookup with a small concurrency limit. */
@@ -51,6 +81,8 @@ export async function mapStopsWithNames(stopRows, concurrency = 8) {
         stopId: row.stop,
         nameTc: detail.nameTc,
         nameEn: detail.nameEn,
+        lat: detail.lat,
+        lng: detail.lng,
       };
     }
   }
