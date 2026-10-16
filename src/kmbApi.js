@@ -6,19 +6,36 @@ async function getJson(url) {
   return res.json();
 }
 
+let routeCatalogPromise = null;
+
+function mapRouteRow(r) {
+  return {
+    route: r.route,
+    bound: r.bound === "I" ? "inbound" : "outbound",
+    serviceType: String(r.service_type),
+    origTc: r.orig_tc,
+    destTc: r.dest_tc,
+    label: `${r.orig_tc} → ${r.dest_tc}`,
+  };
+}
+
+/** Full KMB route list, cached in memory for live search. */
+export function fetchRouteCatalog() {
+  if (!routeCatalogPromise) {
+    routeCatalogPromise = getJson(`${BASE}/route/`)
+      .then((json) => (json.data || []).map(mapRouteRow))
+      .catch((err) => {
+        routeCatalogPromise = null;
+        throw err;
+      });
+  }
+  return routeCatalogPromise;
+}
+
 export async function fetchRouteVariants(route) {
-  const json = await getJson(`${BASE}/route/`);
   const needle = String(route).trim().toUpperCase();
-  return (json.data || [])
-    .filter((r) => r.route === needle)
-    .map((r) => ({
-      route: r.route,
-      bound: r.bound === "I" ? "inbound" : "outbound",
-      serviceType: String(r.service_type),
-      origTc: r.orig_tc,
-      destTc: r.dest_tc,
-      label: `${r.orig_tc} → ${r.dest_tc}`,
-    }));
+  const all = await fetchRouteCatalog();
+  return all.filter((r) => r.route === needle);
 }
 
 export async function fetchRouteStops(route, bound, serviceType) {

@@ -1,6 +1,7 @@
 import {
   fetchEta,
   fetchRouteVariants,
+  fetchRouteCatalog,
   fetchRouteStops,
   mapStopsWithNames,
   findOppositeDirection,
@@ -104,6 +105,9 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
   let timer = null;
   let freshTimer = null;
   let bound = false;
+  let searchDraft = "";
+  let lastEtaHtml = "";
+  let searchVariant = null;
 
   const persist = (next) => {
     selection = next;
@@ -160,11 +164,22 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     row.innerHTML = chips || `<span class="muted fav-empty">未有常用</span>`;
   };
 
+  const typingInSearch = () => {
+    const el = document.activeElement;
+    return !!(
+      el &&
+      root.contains(el) &&
+      (el.id === "bus-search-route" || el.classList.contains("bus-filter"))
+    );
+  };
+
   const paintShell = () => {
+    if (typingInSearch()) return;
     if (titleEl) titleEl.textContent = "巴士";
     if (!current && selection?.items?.length) {
       current = selection.items.find((i) => i.id === selection.activeId) || selection.items[0];
     }
+    const draft = escapeHtml(searchDraft);
     root.innerHTML = `
       <div class="bus-saved">
         <div class="bus-chip-grid" id="bus-chips" aria-label="常用巴士"></div>
@@ -173,13 +188,10 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
           <button type="button" class="bus-pill bus-near-pill" id="bus-nearby">📍 附近分站</button>
         </div>
       </div>
-      <div id="bus-eta"><p class="muted">載入 ETA…</p></div>
+      <div id="bus-eta">${lastEtaHtml || `<p class="muted">載入 ETA…</p>`}</div>
       <section class="bus-search" id="bus-search" ${searchOpen ? "" : "hidden"}>
-        <div class="add-form bus-search-form">
-          <input id="bus-search-route" type="text" inputmode="text" autocomplete="off" placeholder="路線 43X" maxlength="8" aria-label="路線" />
-          <button type="button" class="tab" id="bus-search-load">搜尋</button>
-        </div>
-        <div id="bus-search-variants" class="add-variants"></div>
+        <input id="bus-search-route" class="bus-route-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="輸入路線，例如 43" maxlength="8" aria-label="路線" value="${draft}" />
+        <div id="bus-search-variants" class="bus-route-hits"></div>
         <div id="bus-search-stops"></div>
         <p class="muted" id="bus-search-status"></p>
         <button type="button" class="ghost-btn" id="bus-restore-defaults">恢復預設路線</button>
@@ -188,6 +200,7 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     paintActions();
     paintChips();
     bindSearch();
+    if (searchOpen && searchDraft) showRouteMatches(searchDraft.trim().toUpperCase());
   };
 
   const renderStopButtons = (stops, { nearestIds = new Set() } = {}) =>
@@ -228,35 +241,11 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
       }
     };
     host.innerHTML = `
-      <div class="bus-filter-row">
-        <input class="bus-filter" type="search" placeholder="🔍 過濾站名（例如：轉車站、大埔）" aria-label="過濾站名" />
-        <button type="button" class="bus-near-btn" data-near>📍 附近分站</button>
-      </div>
+      <input class="bus-filter" type="text" placeholder="🔍 過濾站名（例如：轉車站、大埔）" aria-label="過濾站名" />
       <div class="bus-stop-list"></div>
     `;
     draw();
     host.querySelector(".bus-filter").addEventListener("input", draw);
-    host.querySelector("[data-near]").addEventListener("click", () => {
-      if (!navigator.geolocation) {
-        onStatus?.("呢部機冇定位");
-        return;
-      }
-      onStatus?.("定位中…（只喺呢部機計距離）");
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          // Coordinates stay in this callback. Never written to localStorage or sent out.
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          rows = rankStopsByDistance(named, lat, lng);
-          draw();
-          const nearest = rows.find((s) => Number.isFinite(s.meters));
-          if (nearest) onPick(nearest, variant);
-          onStatus?.(nearest ? `最近：${nearest.nameTc}` : "附近冇站座標");
-        },
-        () => onStatus?.("定位未允許，可以手動過濾站名"),
-        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-      );
-    });
     host.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-pick-stop]");
       if (!btn) return;
@@ -288,65 +277,135 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     return refresh();
   };
 
+  let matchSeq = 0;
+  let matchTimer = 0;
+
+  const showDirectionStops = async (variant) => {
+    const stopsEl = root.querySelector("#bus-search-stops");
+    const statusEl = root.querySelector("#bus-search-status");
+    if (!stopsEl || !variant) return;
+    searchVariant = variant;
+    statusEl.textContent = "載入車站…";
+    try {
+      const raw = await fetchRouteStops(variant.route, variant.bound, variant.serviceType);
+      const named = await mapStopsWithNames(raw);
+      stopsEl.innerHTML = `
+        <div class="bus-search-dirbar">
+          <span>${escapeHtml(variant.route)} 往${escapeHtml(variant.destTc || "")}</span>
+          <button type="button" class="reverse-cta" id="bus-search-reverse">⇄ 調轉方向</button>
+        </div>
+        <div id="bus-search-stop-host"></div>
+      `;
+      mountStopBrowser(stopsEl.querySelector("#bus-search-stop-host"), named, variant, {
+        onPick: (stop, v) => adoptStop(stop, v),
+      });
+      stopsEl.querySelector("#bus-search-reverse")?.addEventListener("click", () => flipSearchDirection());
+      statusEl.textContent = `${named.length} 個站`;
+    } catch (err) {
+      statusEl.textContent = err.message || "載入失敗";
+    }
+  };
+
+  const flipSearchDirection = async () => {
+    if (!searchVariant) return;
+    const all = await fetchRouteCatalog();
+    const other = all.find(
+      (v) =>
+        v.route === searchVariant.route &&
+        v.serviceType === searchVariant.serviceType &&
+        v.bound !== searchVariant.bound
+    );
+    if (!other) {
+      onStatus?.("搵唔到反方向");
+      return;
+    }
+    await showDirectionStops(other);
+    onStatus?.(`已調轉：往${other.destTc}`);
+  };
+
+  const showRouteMatches = async (q) => {
+    const variantsEl = root.querySelector("#bus-search-variants");
+    const statusEl = root.querySelector("#bus-search-status");
+    const stopsEl = root.querySelector("#bus-search-stops");
+    if (!variantsEl) return;
+    const seq = ++matchSeq;
+    if (!q) {
+      variantsEl.innerHTML = "";
+      if (stopsEl) stopsEl.innerHTML = "";
+      if (statusEl) statusEl.textContent = "輸入路線編號";
+      return;
+    }
+    if (statusEl) statusEl.textContent = "搜尋中…";
+    try {
+      const all = await fetchRouteCatalog();
+      if (seq !== matchSeq) return;
+      const routes = [
+        ...new Set(
+          all
+            .filter((r) => {
+              const name = r.route.toUpperCase();
+              return name.startsWith(q) || name.includes(q);
+            })
+            .map((r) => r.route)
+        ),
+      ].sort((a, b) => {
+        const as = a.toUpperCase().startsWith(q) ? 0 : 1;
+        const bs = b.toUpperCase().startsWith(q) ? 0 : 1;
+        return as - bs || a.localeCompare(b, "en");
+      });
+      const top = routes.slice(0, 8);
+      if (!top.length) {
+        variantsEl.innerHTML = `<p class="muted">冇符合嘅路線</p>`;
+        if (statusEl) statusEl.textContent = "";
+        return;
+      }
+      variantsEl.innerHTML = top
+        .map((route) => {
+          const dirs = all.filter((r) => r.route === route && r.serviceType === "1");
+          const list = dirs.length ? dirs : all.filter((r) => r.route === route);
+          return `<div class="bus-route-hit">
+            <span class="eta-route-badge">${escapeHtml(route)}</span>
+            ${list
+              .map(
+                (v) =>
+                  `<button type="button" class="station-btn" data-pick-dir="${escapeHtml(v.route)}|${escapeHtml(v.bound)}|${escapeHtml(v.serviceType)}">往${escapeHtml(v.destTc)}</button>`
+              )
+              .join("")}
+          </div>`;
+        })
+        .join("");
+      if (statusEl) statusEl.textContent = "揀方向";
+    } catch (err) {
+      if (seq !== matchSeq) return;
+      if (statusEl) statusEl.textContent = err.message || "搜尋失敗";
+    }
+  };
+
   const bindSearch = () => {
     const input = root.querySelector("#bus-search-route");
     const variantsEl = root.querySelector("#bus-search-variants");
-    const stopsEl = root.querySelector("#bus-search-stops");
-    const statusEl = root.querySelector("#bus-search-status");
-    let loaded = [];
     input?.addEventListener("input", () => {
-      const up = input.value.toUpperCase();
-      if (up !== input.value) input.value = up;
-    });
-    root.querySelector("#bus-search-load")?.addEventListener("click", async () => {
-      const route = input.value.trim().toUpperCase();
-      if (!route) {
-        statusEl.textContent = "請輸入路線";
-        return;
-      }
-      statusEl.textContent = "搜尋中…";
-      variantsEl.innerHTML = "";
-      stopsEl.innerHTML = "";
-      try {
-        const all = await fetchRouteVariants(route);
-        const preferred = all.filter((v) => v.serviceType === "1");
-        loaded = preferred.length ? preferred : all;
-        if (!loaded.length) {
-          statusEl.textContent = `搵唔到 ${route}`;
-          return;
-        }
-        variantsEl.innerHTML = loaded
-          .map(
-            (v, i) =>
-              `<button type="button" class="station-btn" data-sv="${i}">${escapeHtml(v.route)} · ${escapeHtml(v.label)}</button>`
-          )
-          .join("");
-        statusEl.textContent = "揀方向";
-      } catch (err) {
-        statusEl.textContent = err.message || "搜尋失敗";
-      }
+      searchDraft = input.value;
+      const q = input.value.trim().toUpperCase();
+      window.clearTimeout(matchTimer);
+      matchTimer = window.setTimeout(() => showRouteMatches(q), 120);
     });
     variantsEl?.addEventListener("click", async (e) => {
-      const btn = e.target.closest("[data-sv]");
+      const btn = e.target.closest("[data-pick-dir]");
       if (!btn) return;
-      const variant = loaded[Number(btn.dataset.sv)];
-      statusEl.textContent = "載入車站…";
-      try {
-        const raw = await fetchRouteStops(variant.route, variant.bound, variant.serviceType);
-        const named = await mapStopsWithNames(raw);
-        mountStopBrowser(stopsEl, named, variant, {
-          onPick: (stop, v) => adoptStop(stop, v),
-        });
-        statusEl.textContent = `${named.length} 個站`;
-      } catch (err) {
-        statusEl.textContent = err.message || "載入失敗";
-      }
+      const [route, boundDir, serviceType] = btn.dataset.pickDir.split("|");
+      const all = await fetchRouteCatalog();
+      const variant = all.find(
+        (v) => v.route === route && v.bound === boundDir && v.serviceType === serviceType
+      );
+      if (variant) showDirectionStops(variant);
     });
     root.querySelector("#bus-restore-defaults")?.addEventListener("click", () => {
       const next = clearBusSelection();
       persist(next);
       current = next.items[0];
       searchOpen = false;
+      searchDraft = "";
       paintShell();
       refresh();
       onStatus?.("已恢復預設路線");
@@ -393,7 +452,9 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
       const eta = await loadEtaRows(current.stopId, current.route, current.serviceType || "1");
       if (seq !== refreshSeq) return;
       if (!current.destName && eta.items[0]?.dest) current.destName = eta.items[0].dest;
-      box.innerHTML = focusHtml(current, eta);
+      if (typingInSearch()) return;
+      lastEtaHtml = focusHtml(current, eta);
+      box.innerHTML = lastEtaHtml;
       lastFetchAt = Date.now();
       updateFresh();
       updateStar();
@@ -505,7 +566,8 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
       searchOpen = !searchOpen;
       pickerOpen = false;
       paintShell();
-      refresh();
+      if (searchOpen) root.querySelector("#bus-search-route")?.focus();
+      else refresh();
       return;
     }
     if (e.target.closest("#bus-stop-toggle")) {

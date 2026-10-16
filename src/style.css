@@ -485,12 +485,7 @@ body {
   display: none !important;
 }
 
-.bus-search-form {
-  display: flex;
-  gap: 0.35rem;
-}
-
-.bus-search-form input,
+.bus-route-input,
 .bus-filter {
   flex: 1;
   min-width: 0;
@@ -502,10 +497,33 @@ body {
   color: var(--ink);
 }
 
-.bus-filter-row {
-  display: flex;
+.bus-route-input {
+  width: 100%;
+  text-transform: uppercase;
+}
+
+.bus-route-hits {
+  display: grid;
   gap: 0.35rem;
+}
+
+.bus-route-hit {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 0.35rem;
+}
+
+.bus-search-dirbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.bus-search-dirbar .reverse-cta {
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .bus-near-btn {
