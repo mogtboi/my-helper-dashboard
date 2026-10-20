@@ -1,7 +1,9 @@
 /**
- * Refresh public/data/movies.json with same-day Hong Kong showtimes.
+ * Refresh public/data/movies.json from public Hong Kong showtimes.
  * Node native fetch only. Reads the public schedule API used by the
  * Emperor and Cinema City websites (signed the same way their H5 client is).
+ * Keeps poster URLs, numeric scores, prices, and future presale dates the
+ * API actually returns. Coming films stay without invented showtimes.
  * Broadway, MCL, and Golden Harvest pages on this network do not return a
  * parseable public schedule; those attempts are logged and skipped.
  * Any failure or empty result keeps the existing file and exits 0.
@@ -170,11 +172,83 @@ async function schedulesForFilm(wapid, filmUniqueId) {
   return rows;
 }
 
+function listOf(film) {
+  const type = String(film?.filmTypeName || "");
+  if (type.split("|").some((part) => part.trim() === "特備節目")) return "special";
+  if (film?.showStatus === "SOON_SHOW_NO_TICKET") return "coming";
+  return "now";
+}
+
+function scoreOf(film) {
+  const raw = film?.rating;
+  if (raw == null || String(raw).trim() === "") return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0 || n > 10) return null;
+  return Math.round(n * 10) / 10;
+}
+
+function posterOf(film) {
+  const raw = String(film?.poster || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || url.username || url.password) return "";
+    return url.href;
+  } catch {
+    return "";
+  }
+}
+
+function priceOf(show) {
+  const raw = Number(show?.displayPrice ?? show?.standardPrice);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  if (raw >= 500) return Math.round(raw / 100);
+  return Math.round(raw);
+}
+
+function movieFrom(chain, film, showtimes) {
+  const title = String(film.filmName || "").trim();
+  if (!title) return null;
+  const movie = {
+    id: `${chain.id}-${film.filmUniqueId || title}`,
+    title,
+    list: listOf(film),
+    rating: ratingOf(film),
+    runtime: Number(film.duration) || 0,
+    showtimes,
+  };
+  const score = scoreOf(film);
+  if (score != null) movie.score = score;
+  const posterUrl = posterOf(film);
+  if (posterUrl) movie.posterUrl = posterUrl;
+  return movie;
+}
+
+async function loadFilms(chain) {
+  const byId = new Map();
+  const add = (films) => {
+    for (const film of Array.isArray(films) ? films : []) {
+      const id = String(film?.filmUniqueId || "");
+      if (!id || byId.has(id)) continue;
+      byId.set(id, film);
+    }
+  };
+  const showing = await callApi(chain.wapid, "gop.alipic.icirena.own.film.showing", { posterSize: "SMALL" });
+  add(showing);
+  try {
+    const coming = await callApi(chain.wapid, "gop.alipic.icirena.own.film.coming", { posterSize: "SMALL" });
+    add(coming);
+  } catch (err) {
+    NOTES.push(`${chain.id} coming list: ${err.message || err}`);
+  }
+  if (!byId.size) throw new Error("empty film list");
+  return [...byId.values()];
+}
+
 async function fetchChain(chain, today) {
-  const films = await callApi(chain.wapid, "gop.alipic.icirena.own.film.showing", { posterSize: "SMALL" });
-  if (!Array.isArray(films) || !films.length) throw new Error("empty now-showing list");
-  const showing = films.filter((film) => !film.showStatus || film.showStatus === "SHOWING");
-  const pages = await mapPool(showing, 4, async (film) => {
+  const films = await loadFilms(chain);
+  const ticketed = films.filter((film) => listOf(film) !== "coming");
+  const pages = await mapPool(ticketed, 4, async (film) => {
     try {
       return { film, rows: await schedulesForFilm(chain.wapid, film.filmUniqueId) };
     } catch (err) {
@@ -182,10 +256,13 @@ async function fetchChain(chain, today) {
       return { film, rows: [] };
     }
   });
+  const scheduled = new Map(pages.map((page) => [String(page.film.filmUniqueId || ""), page.rows]));
   const cinemas = new Map();
   const movies = [];
-  for (const { film, rows } of pages) {
+  for (const film of films) {
+    const rows = scheduled.get(String(film.filmUniqueId || "")) || [];
     const showtimes = [];
+    const seen = new Set();
     for (const row of rows) {
       const info = row?.cinemaInfo || {};
       const region = regionOf(info.cityName);
@@ -206,25 +283,25 @@ async function fetchChain(chain, today) {
         const ms = Number(show.showTime);
         if (!Number.isFinite(ms)) continue;
         const when = hktParts(ms);
-        if (when.date !== today || !/^\d{2}:\d{2}$/.test(when.time)) continue;
-        const item = { cinemaId, time: when.time };
+        if (when.date < today || !/^\d{2}:\d{2}$/.test(when.time)) continue;
+        const item = { cinemaId, date: when.date, time: when.time };
         if (show.hallName) item.house = String(show.hallName);
         const format = formatOf(show);
         if (format) item.format = format;
+        const price = priceOf(show);
+        if (price > 0) item.price = price;
+        const key = `${cinemaId}|${item.date}|${item.time}|${item.house || ""}|${item.format || ""}|${item.price || ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
         showtimes.push(item);
       }
     }
-    const title = String(film.filmName || "").trim();
-    if (!title || !showtimes.length) continue;
-    movies.push({
-      id: `${chain.id}-${film.filmUniqueId || title}`,
-      title,
-      rating: ratingOf(film),
-      runtime: Number(film.duration) || 0,
-      showtimes,
-    });
+    showtimes.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    const movie = movieFrom(chain, film, showtimes);
+    if (movie) movies.push(movie);
   }
-  return { cinemas: [...cinemas.values()], movies };
+  const used = new Set(movies.flatMap((movie) => movie.showtimes.map((show) => show.cinemaId)));
+  return { cinemas: [...cinemas.values()].filter((cinema) => used.has(cinema.id)), movies };
 }
 
 function mergeChains(parts) {
@@ -238,25 +315,25 @@ function mergeChains(parts) {
       cinemas.push(cinema);
     }
     for (const movie of part.movies) {
-      const key = movie.title;
+      const key = `${movie.list}\n${movie.title}`;
       const prev = byTitle.get(key);
       if (!prev) {
         byTitle.set(key, {
-          id: movie.id,
-          title: movie.title,
-          rating: movie.rating,
-          runtime: movie.runtime,
+          ...movie,
           showtimes: [...movie.showtimes],
         });
         continue;
       }
       if (!prev.rating && movie.rating) prev.rating = movie.rating;
       if (!prev.runtime && movie.runtime) prev.runtime = movie.runtime;
+      if (prev.score == null && movie.score != null) prev.score = movie.score;
+      if (!prev.posterUrl && movie.posterUrl) prev.posterUrl = movie.posterUrl;
       prev.showtimes.push(...movie.showtimes);
     }
   }
-  const movies = [...byTitle.values()].filter((movie) => movie.showtimes.length);
-  return { cinemas, movies };
+  const movies = [...byTitle.values()];
+  const used = new Set(movies.flatMap((movie) => movie.showtimes.map((show) => show.cinemaId)));
+  return { cinemas: cinemas.filter((cinema) => used.has(cinema.id)), movies };
 }
 
 async function main() {
@@ -282,7 +359,7 @@ async function main() {
   }
   NOTES.push("broadway cinema.com.hk, mclcinema.com, and goldenharvest.com did not return a parseable public schedule from this environment");
   const merged = mergeChains(parts);
-  if (!merged.movies.length || !merged.cinemas.length) keep("no fetched showtimes");
+  if (!merged.movies.length) keep("no fetched films");
   const next = {
     source: "live",
     sample: false,

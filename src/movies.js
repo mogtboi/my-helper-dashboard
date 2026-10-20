@@ -17,6 +17,12 @@ const CHAINS = [
   { id: "other", label: "其他" },
 ];
 
+const LISTS = [
+  { id: "now", label: "即日/預售" },
+  { id: "coming", label: "不日上映" },
+  { id: "special", label: "特備節目" },
+];
+
 const CHAIN_LABEL = Object.fromEntries(CHAINS.filter((c) => c.id !== "all").map((c) => [c.id, c.label]));
 const REGION_LABEL = Object.fromEntries(REGIONS.filter((r) => r.id !== "all").map((r) => [r.id, r.label]));
 
@@ -68,6 +74,22 @@ function safeBuyUrl(cinema) {
   }
 }
 
+function safePosterUrl(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "https:" || u.username || u.password) return "";
+    return u.href;
+  } catch {
+    return "";
+  }
+}
+
+function hktToday(now = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong" }).format(now);
+}
+
 function hktNowMinutes(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Hong_Kong",
@@ -89,11 +111,48 @@ function timeToMinutes(hhmm) {
   return h * 60 + min;
 }
 
-function pillLabel(show) {
-  const bits = [];
-  if (show.house) bits.push(String(show.house));
+function listOf(movie) {
+  if (movie?.list === "coming" || movie?.list === "special") return movie.list;
+  return "now";
+}
+
+function scoreOf(movie) {
+  if (movie?.score == null || movie.score === "") return null;
+  const n = Number(movie.score);
+  if (!Number.isFinite(n) || n < 0 || n > 10) return null;
+  return n;
+}
+
+function countOf(value) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n);
+}
+
+function houseLabel(house) {
+  const text = String(house || "").trim();
+  if (!text) return "";
+  const numbered = /^(?:house|院)\s*(\d+)$/i.exec(text) || /^(\d+)\s*院$/.exec(text);
+  if (numbered) return `${numbered[1]}院`;
+  return text;
+}
+
+function datePrefix(date, today) {
+  if (!date || date === today) return "";
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!parts) return "";
+  return `${Number(parts[2])}/${Number(parts[3])} `;
+}
+
+function pillLabel(show, today) {
+  const bits = [`${datePrefix(show.date, today)}${show.time || ""}`.trim()];
+  const house = houseLabel(show.house);
+  if (house) bits.push(house);
   if (show.format) bits.push(String(show.format));
-  return bits.length ? `${show.time} (${bits.join(" · ")})` : String(show.time || "");
+  const price = Number(show.price);
+  if (Number.isFinite(price) && price > 0) bits.push(`$${Math.round(price)}`);
+  return bits.filter(Boolean).join(" · ");
 }
 
 function buyLink(url) {
@@ -102,8 +161,8 @@ function buyLink(url) {
   return `<a class="movies-buy" href="${href}" target="_blank" rel="noopener noreferrer">🎟️ 官網買飛 ↗</a>`;
 }
 
-function timePill(show, url) {
-  const label = escapeHtml(pillLabel(show));
+function timePill(show, url, today) {
+  const label = escapeHtml(pillLabel(show, today));
   if (!url) return `<span class="movies-time is-plain">${label}</span>`;
   return `<a class="movies-time" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
 }
@@ -119,20 +178,50 @@ function cmpCinema(a, b, sort) {
   return d || byName();
 }
 
-function badge(cinema) {
-  const region = REGION_LABEL[cinema.region] || cinema.region || "";
+function badgeText(cinema) {
+  const region = REGION_LABEL[cinema.region] || "";
   const chain = CHAIN_LABEL[cinema.chain] || "";
-  const text = [region, chain].filter(Boolean).join(" · ");
-  return text ? `<span class="movies-chain-badge">${escapeHtml(text)}</span>` : "";
+  return [region, chain].filter(Boolean).join(" · ");
+}
+
+function starsHtml(score) {
+  const filled = score == null ? 0 : Math.max(0, Math.min(5, Math.round(score / 2)));
+  const marks = [0, 1, 2, 3, 4]
+    .map((i) => `<span class="${i < filled ? "is-on" : ""}">★</span>`)
+    .join("");
+  return `<span class="movies-stars" aria-hidden="true">${marks}</span>`;
+}
+
+function scoreRow(movie) {
+  const score = scoreOf(movie);
+  const num = score == null ? "--" : score.toFixed(1);
+  return `<span class="movies-score-num${score == null ? " is-empty" : ""}">${escapeHtml(num)}</span>${starsHtml(score)}`;
+}
+
+function fallbackHtml(title, rating) {
+  return `<div class="movies-fallback"><span class="movies-fallback-title">${escapeHtml(title)}</span>${
+    rating ? `<span class="movies-rating">${escapeHtml(rating)}</span>` : ""
+  }</div>`;
+}
+
+function posterHtml(movie) {
+  const title = String(movie.title || "");
+  const rating = String(movie.rating || "");
+  const url = safePosterUrl(movie.posterUrl);
+  if (!url) return `<div class="movies-poster">${fallbackHtml(title, rating)}</div>`;
+  return `<div class="movies-poster"><img class="movies-poster-img" src="${escapeHtml(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-title="${escapeHtml(title)}" data-rating="${escapeHtml(rating)}"></div>`;
 }
 
 export function createMovies(root, { onStatus } = {}) {
   const state = {
     mode: "movie",
+    list: "now",
+    view: "grid",
     region: "all",
     chain: "all",
     sort: "region",
     hidePast: true,
+    searchOpen: false,
     query: "",
     movieId: "",
     cinemaId: "",
@@ -151,46 +240,81 @@ export function createMovies(root, { onStatus } = {}) {
     return true;
   };
 
-  const showsFor = (movie, cinemaId) => {
-    const nowMin = hktNowMinutes();
-    return (movie.showtimes || []).filter((show) => {
-      if (show.cinemaId !== cinemaId) return false;
-      if (!state.hidePast) return true;
-      const mins = timeToMinutes(show.time);
-      if (mins == null) return false;
-      return mins >= nowMin;
-    });
+  const showVisible = (show, { todayOnly }) => {
+    const today = hktToday();
+    const date = show?.date || today;
+    if (date < today) return false;
+    if (todayOnly && date !== today) return false;
+    if (!state.hidePast) return true;
+    if (date > today) return true;
+    const mins = timeToMinutes(show.time);
+    if (mins == null) return false;
+    return mins >= hktNowMinutes();
   };
+
+  const showsFor = (movie, cinemaId, todayOnly) =>
+    (movie.showtimes || [])
+      .filter((show) => show.cinemaId === cinemaId && showVisible(show, { todayOnly }))
+      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.time).localeCompare(String(b.time)));
 
   const query = () => state.query.trim().toLowerCase();
 
-  const cinemasFor = (movie) =>
-    cinemas()
+  const cinemaCount = (movie) => {
+    const ids = new Set();
+    for (const show of movie.showtimes || []) {
+      if (!showVisible(show, { todayOnly: false })) continue;
+      if (show.cinemaId) ids.add(show.cinemaId);
+    }
+    return ids.size;
+  };
+
+  const metaHtml = (movie) => {
+    const likes = countOf(movie.likeCount);
+    const comments = countOf(movie.commentCount);
+    if (likes != null || comments != null) {
+      const bits = [];
+      if (likes != null) bits.push(`👍 ${likes}`);
+      if (comments != null) bits.push(`💬 ${comments}`);
+      return escapeHtml(bits.join("  "));
+    }
+    return `🎬 ${escapeHtml(cinemaCount(movie))}間上映`;
+  };
+
+  const titleHtml = (movie) => {
+    const hot = movie.hot === true ? "🔥 " : "";
+    return `${hot}${escapeHtml(movie.title || "")}`;
+  };
+
+  const filmsForTab = () => {
+    const q = query();
+    return movies().filter((movie) => {
+      if (listOf(movie) !== state.list) return false;
+      if (!q) return true;
+      return String(movie.title || "").toLowerCase().includes(q);
+    });
+  };
+
+  const cinemasForFilm = (movie) => {
+    const q = query();
+    const titleHit = Boolean(q) && String(movie.title || "").toLowerCase().includes(q);
+    return cinemas()
       .filter((cinema) => {
-        if (!cinemaPasses(cinema) || !showsFor(movie, cinema.id).length) return false;
-        const q = query();
-        if (!q) return true;
-        return (
-          String(movie.title || "").toLowerCase().includes(q) ||
-          String(cinema.name || "").toLowerCase().includes(q)
-        );
+        if (!cinemaPasses(cinema) || !showsFor(movie, cinema.id, false).length) return false;
+        if (!q || titleHit) return true;
+        return String(cinema.name || "").toLowerCase().includes(q);
       })
       .sort((a, b) => cmpCinema(a, b, state.sort));
-
-  const filmsWithShows = () =>
-    movies()
-      .map((movie) => ({ movie, rows: cinemasFor(movie) }))
-      .filter((row) => row.rows.length)
-      .sort((a, b) => String(a.movie.title).localeCompare(String(b.movie.title), "zh-Hant"));
+  };
 
   const cinemaRows = () => {
     const q = query();
+    const todayFilms = movies().filter((movie) => listOf(movie) !== "coming");
     return cinemas()
       .filter((cinema) => cinemaPasses(cinema))
       .map((cinema) => {
-        const titles = movies()
+        const titles = todayFilms
           .filter((movie) => {
-            if (!showsFor(movie, cinema.id).length) return false;
+            if (!showsFor(movie, cinema.id, true).length) return false;
             if (!q) return true;
             return (
               String(movie.title || "").toLowerCase().includes(q) ||
@@ -200,7 +324,15 @@ export function createMovies(root, { onStatus } = {}) {
           .sort((a, b) => String(a.title).localeCompare(String(b.title), "zh-Hant"));
         return { cinema, titles };
       })
-      .filter((row) => row.titles.length)
+      .filter((row) => {
+        if (!row.titles.length) return false;
+        const q = query();
+        if (!q) return true;
+        return (
+          String(row.cinema.name || "").toLowerCase().includes(q) ||
+          row.titles.some((movie) => String(movie.title || "").toLowerCase().includes(q))
+        );
+      })
       .sort((a, b) => cmpCinema(a.cinema, b.cinema, state.sort));
   };
 
@@ -209,62 +341,102 @@ export function createMovies(root, { onStatus } = {}) {
 
   const shell = () => `
     <div class="movies-page">
-      <div class="movies-modes" role="group" aria-label="睇法">
-        <button type="button" class="movies-mode" data-mode="movie" aria-pressed="${state.mode === "movie" ? "true" : "false"}">🎬 按電影睇</button>
-        <button type="button" class="movies-mode" data-mode="cinema" aria-pressed="${state.mode === "cinema" ? "true" : "false"}">🍿 按戲院睇</button>
+      <div class="movies-top">
+        <div class="movies-modes" role="group" aria-label="睇法">
+          <button type="button" class="movies-mode" data-mode="movie" aria-pressed="${state.mode === "movie" ? "true" : "false"}">電影</button>
+          <button type="button" class="movies-mode" data-mode="cinema" aria-pressed="${state.mode === "cinema" ? "true" : "false"}">戲院資訊</button>
+        </div>
+        <div class="movies-tools">
+          <button type="button" class="movies-tool" data-search-toggle aria-pressed="${state.searchOpen ? "true" : "false"}" aria-label="搜尋">🔍</button>
+          <button type="button" class="movies-tool" data-view-toggle aria-pressed="${state.view === "list" ? "true" : "false"}" aria-label="${state.view === "list" ? "海報" : "列表"}">${state.view === "list" ? "▦" : "☰"}</button>
+        </div>
       </div>
-      <div class="movies-filters">
-        <div class="movies-pills" role="group" aria-label="地區">
-          ${REGIONS.map((r) => chip("region", r.id, r.label, state.region === r.id)).join("")}
-        </div>
-        <div class="movies-pills" role="group" aria-label="院線">
-          ${CHAINS.map((c) => chip("chain", c.id, c.label, state.chain === c.id)).join("")}
-        </div>
-        <label class="movies-sort">排序
-          <select id="movies-sort" aria-label="排序">
-            <option value="region" ${state.sort === "region" ? "selected" : ""}>地區</option>
-            <option value="chain" ${state.sort === "chain" ? "selected" : ""}>院線</option>
-            <option value="name" ${state.sort === "name" ? "selected" : ""}>戲院名稱</option>
-          </select>
-        </label>
-        <input id="movies-q" class="movies-search" type="search" inputmode="search" placeholder="🔍 搜尋戲名或戲院..." value="${escapeHtml(state.query)}" autocomplete="off" />
+      <div id="movies-search" class="movies-search-panel" ${state.searchOpen ? "" : "hidden"}>
+        <input id="movies-q" class="movies-search" type="search" inputmode="search" placeholder="關鍵字" value="${escapeHtml(state.query)}" autocomplete="off" enterkeyhint="search" />
         <button type="button" class="movies-hide" data-hide-past aria-pressed="${state.hidePast ? "true" : "false"}">隱藏已開場次</button>
       </div>
+      <div id="movies-tabs" class="movies-tabs" role="tablist" aria-label="上映"></div>
       <div id="movies-results"></div>
     </div>
   `;
 
-  const showBlock = (shows, url) => `
-    <div class="movies-show-block">
-      ${shows.map((show) => timePill(show, url)).join("")}
-      ${buyLink(url)}
+  const filtersHtml = () => `
+    <div class="movies-filters">
+      <div class="movies-pills" role="group" aria-label="地區">
+        ${REGIONS.map((r) => chip("region", r.id, r.label, state.region === r.id)).join("")}
+      </div>
+      <div class="movies-pills" role="group" aria-label="院線">
+        ${CHAINS.map((c) => chip("chain", c.id, c.label, state.chain === c.id)).join("")}
+      </div>
+      <div class="movies-filter-row">
+        <label class="movies-sort">排序
+          <select id="movies-sort" aria-label="排序">
+            <option value="region" ${state.sort === "region" ? "selected" : ""}>地區</option>
+            <option value="chain" ${state.sort === "chain" ? "selected" : ""}>院線</option>
+            <option value="name" ${state.sort === "name" ? "selected" : ""}>名稱</option>
+          </select>
+        </label>
+        <button type="button" class="movies-hide" data-hide-past aria-pressed="${state.hidePast ? "true" : "false"}">隱藏已開場次</button>
+      </div>
     </div>
   `;
 
-  const movieHead = (movie) => `
-    <div class="movies-title-row">
-      <h3>${escapeHtml(movie.title)}</h3>
-      ${movie.rating ? `<span class="movies-rating">${escapeHtml(movie.rating)}</span>` : ""}
-      ${Number(movie.runtime) > 0 ? `<span class="movies-runtime">${escapeHtml(movie.runtime)} 分鐘</span>` : ""}
-    </div>
-  `;
-
-  const cinemaHead = (cinema, url) => `
-    <div class="movies-cinema-head">
-      <h3 class="movies-cinema-name">${escapeHtml(cinema.name)}</h3>
-      ${badge(cinema)}
-      ${buyLink(url)}
-    </div>
-  `;
-
-  const filmButton = (movie, count, pressed) => `
-    <button type="button" class="movies-pick" data-pick-movie="${escapeHtml(movie.id)}" aria-pressed="${pressed ? "true" : "false"}">
-      <span class="movies-pick-title">${escapeHtml(movie.title)}</span>
-      ${movie.rating ? `<span class="movies-rating">${escapeHtml(movie.rating)}</span>` : ""}
-      ${Number(movie.runtime) > 0 ? `<span class="movies-runtime">${escapeHtml(movie.runtime)} 分鐘</span>` : ""}
-      <span class="movies-count">${escapeHtml(count)} 間戲院上映</span>
+  const filmCell = (movie) => `
+    <button type="button" class="movies-cell" data-open-movie="${escapeHtml(movie.id)}">
+      ${posterHtml(movie)}
+      <span class="movies-cell-title">${titleHtml(movie)}</span>
+      <span class="movies-cell-score">${scoreRow(movie)}</span>
+      <span class="movies-cell-meta">${metaHtml(movie)}</span>
     </button>
   `;
+
+  const filmListRow = (movie) => `
+    <button type="button" class="movies-row" data-open-movie="${escapeHtml(movie.id)}">
+      ${posterHtml(movie)}
+      <span class="movies-row-copy">
+        <span class="movies-cell-title">${titleHtml(movie)}</span>
+        <span class="movies-cell-score">${scoreRow(movie)}</span>
+        <span class="movies-cell-meta">${metaHtml(movie)}</span>
+      </span>
+    </button>
+  `;
+
+  const cinemaCard = (cinema, movie, todayOnly) => {
+    const url = safeBuyUrl(cinema);
+    const today = hktToday();
+    const shows = showsFor(movie, cinema.id, todayOnly);
+    const where = badgeText(cinema);
+    return `
+      <article class="movies-card">
+        <h3 class="movies-cinema-name">${escapeHtml(cinema.name)}</h3>
+        ${where ? `<p class="movies-where">${escapeHtml(where)}</p>` : ""}
+        ${buyLink(url)}
+        <div class="movies-show-block">
+          ${shows.map((show) => timePill(show, url, today)).join("")}
+        </div>
+      </article>
+    `;
+  };
+
+  const drillHtml = (movie) => {
+    const runtime = Number(movie.runtime) > 0 ? `<span class="movies-runtime">${escapeHtml(movie.runtime)} 分鐘</span>` : "";
+    const rating = movie.rating ? `<span class="movies-rating">${escapeHtml(movie.rating)}</span>` : "";
+    const rows = cinemasForFilm(movie);
+    const cards = rows.map((cinema) => cinemaCard(cinema, movie, false)).join("");
+    return `
+      <button type="button" class="movies-back" data-back>← 返回電影列表</button>
+      <div class="movies-drill-head">
+        ${posterHtml(movie)}
+        <div class="movies-drill-copy">
+          <h3 class="movies-drill-title">${titleHtml(movie)}</h3>
+          <div class="movies-drill-meta">${rating}${runtime}</div>
+          <div class="movies-cell-score">${scoreRow(movie)}</div>
+        </div>
+      </div>
+      ${filtersHtml()}
+      ${cards || `<p class="movies-empty muted">冇符合條件嘅場次</p>`}
+    `;
+  };
 
   const resultsHtml = () => {
     if (loadError && !payload) return `<p class="error">${escapeHtml(loadError)}</p>`;
@@ -275,67 +447,73 @@ export function createMovies(root, { onStatus } = {}) {
 
     if (state.mode === "cinema") {
       const rows = cinemaRows();
-      const selected =
-        rows.find((row) => row.cinema.id === state.cinemaId) || rows[0] || null;
-      const picker = `
-        <div class="movies-picker" role="listbox" aria-label="揀戲院">
-          ${rows
-            .map((row) => {
-              const on = selected && row.cinema.id === selected.cinema.id;
-              return `<button type="button" class="movies-pick" data-pick-cinema="${escapeHtml(row.cinema.id)}" aria-pressed="${on ? "true" : "false"}">
-                <span class="movies-pick-title">${escapeHtml(row.cinema.name)}</span>
-                ${badge(row.cinema)}
-              </button>`;
-            })
-            .join("")}
-        </div>
-      `;
-      if (!selected) return `${note}${picker}<p class="movies-empty muted">冇符合條件嘅場次</p>`;
-      const url = safeBuyUrl(selected.cinema);
-      const body = `
-        <article class="movies-card">
-          ${cinemaHead(selected.cinema, url)}
-          ${selected.titles
-            .map(
-              (movie) => `
-            <div class="movies-block">
-              ${movieHead(movie)}
-              ${showBlock(showsFor(movie, selected.cinema.id), url)}
-            </div>`
-            )
-            .join("")}
-        </article>
-      `;
-      return `${note}${picker}${body}`;
+      const body = rows
+        .map((row) => {
+          const open = row.cinema.id === state.cinemaId;
+          const url = safeBuyUrl(row.cinema);
+          const where = badgeText(row.cinema);
+          const detail = open
+            ? `<div class="movies-expand">
+                ${where ? `<p class="movies-where">${escapeHtml(where)}</p>` : ""}
+                ${buyLink(url)}
+                ${row.titles
+                  .map((movie) => {
+                    const today = hktToday();
+                    const shows = showsFor(movie, row.cinema.id, true);
+                    return `<div class="movies-block">
+                      <h4>${escapeHtml(movie.title)}</h4>
+                      <div class="movies-show-block">${shows.map((show) => timePill(show, url, today)).join("")}</div>
+                    </div>`;
+                  })
+                  .join("")}
+              </div>`
+            : "";
+          return `<article class="movies-card movies-cinema-item">
+            <button type="button" class="movies-cinema-toggle" data-pick-cinema="${escapeHtml(row.cinema.id)}" aria-expanded="${open ? "true" : "false"}">
+              <span class="movies-cinema-name">${escapeHtml(row.cinema.name)}</span>
+              ${where ? `<span class="movies-where">${escapeHtml(where)}</span>` : ""}
+            </button>
+            ${detail}
+          </article>`;
+        })
+        .join("");
+      return `${note}${filtersHtml()}${body || `<p class="movies-empty muted">冇符合條件嘅戲院</p>`}`;
     }
 
-    const films = filmsWithShows();
-    const selectedAll = state.movieId === "all";
-    const selectedFilm = selectedAll ? null : films.find((row) => row.movie.id === state.movieId) || films[0] || null;
-    const activeId = selectedAll ? "all" : selectedFilm?.movie.id || "all";
-    const picker = `
-      <div class="movies-picker" role="listbox" aria-label="揀電影">
-        <button type="button" class="movies-pick" data-pick-movie="all" aria-pressed="${activeId === "all" ? "true" : "false"}">
-          <span class="movies-pick-title">全部電影</span>
-        </button>
-        ${films.map((row) => filmButton(row.movie, row.rows.length, row.movie.id === activeId)).join("")}
-      </div>
-    `;
-    const cards = (selectedAll ? films : selectedFilm ? [selectedFilm] : []).flatMap((row) =>
-      row.rows.map((cinema) => {
-        const url = safeBuyUrl(cinema);
-        const filmLabel = selectedAll
-          ? `<div class="movies-block">${movieHead(row.movie)}${showBlock(showsFor(row.movie, cinema.id), url)}</div>`
-          : `<div class="movies-block">${showBlock(showsFor(row.movie, cinema.id), url)}</div>`;
-        return `<article class="movies-card">${cinemaHead(cinema, url)}${filmLabel}</article>`;
-      })
-    );
-    return `${note}${picker}${cards.join("") || `<p class="movies-empty muted">冇符合條件嘅場次</p>`}`;
+    if (state.movieId) {
+      const movie = movies().find((item) => item.id === state.movieId);
+      if (!movie) return `${note}<button type="button" class="movies-back" data-back>← 返回電影列表</button><p class="movies-empty muted">搵唔到呢套戲</p>`;
+      return `${note}${drillHtml(movie)}`;
+    }
+
+    const films = filmsForTab();
+    const grid =
+      state.view === "list"
+        ? `<div class="movies-list">${films.map(filmListRow).join("")}</div>`
+        : `<div class="movies-grid">${films.map(filmCell).join("")}</div>`;
+    return `${note}${grid || `<p class="movies-empty muted">呢個分類暫時冇電影</p>`}`;
+  };
+
+  const paintTabs = () => {
+    const box = root.querySelector("#movies-tabs");
+    if (!box) return;
+    const show = state.mode === "movie" && !state.movieId;
+    box.hidden = !show;
+    if (!show) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = LISTS.map(
+      (tab) =>
+        `<button type="button" class="movies-tab" role="tab" data-list="${escapeHtml(tab.id)}" aria-selected="${state.list === tab.id ? "true" : "false"}">${escapeHtml(tab.label)}</button>`
+    ).join("");
   };
 
   const paintResults = () => {
     const box = root.querySelector("#movies-results");
     if (box) box.innerHTML = resultsHtml();
+    paintTabs();
+    syncPressed();
   };
 
   const syncPressed = () => {
@@ -348,43 +526,106 @@ export function createMovies(root, { onStatus } = {}) {
     root.querySelectorAll("[data-filter='chain']").forEach((btn) => {
       btn.setAttribute("aria-pressed", btn.dataset.value === state.chain ? "true" : "false");
     });
-    const hide = root.querySelector("[data-hide-past]");
-    if (hide) hide.setAttribute("aria-pressed", state.hidePast ? "true" : "false");
-    const sort = root.querySelector("#movies-sort");
-    if (sort && sort.value !== state.sort) sort.value = state.sort;
+    root.querySelectorAll("[data-hide-past]").forEach((btn) => {
+      btn.setAttribute("aria-pressed", state.hidePast ? "true" : "false");
+    });
+    const search = root.querySelector("[data-search-toggle]");
+    if (search) search.setAttribute("aria-pressed", state.searchOpen ? "true" : "false");
+    const view = root.querySelector("[data-view-toggle]");
+    if (view) {
+      const list = state.view === "list";
+      view.setAttribute("aria-pressed", list ? "true" : "false");
+      view.setAttribute("aria-label", list ? "海報" : "列表");
+      view.textContent = list ? "▦" : "☰";
+      view.hidden = state.mode !== "movie" || Boolean(state.movieId);
+    }
+    const panel = root.querySelector("#movies-search");
+    if (panel) panel.hidden = !state.searchOpen;
+    root.querySelectorAll("#movies-sort").forEach((sort) => {
+      if (sort.value !== state.sort) sort.value = state.sort;
+    });
   };
+
+  root.addEventListener(
+    "error",
+    (event) => {
+      const img = event.target;
+      if (!(img instanceof Element) || img.tagName !== "IMG" || !img.classList.contains("movies-poster-img")) return;
+      const box = img.parentElement;
+      if (!box) return;
+      const title = img.getAttribute("data-title") || "";
+      const rating = img.getAttribute("data-rating") || "";
+      const fallback = document.createElement("div");
+      fallback.className = "movies-fallback";
+      const name = document.createElement("span");
+      name.className = "movies-fallback-title";
+      name.textContent = title;
+      fallback.append(name);
+      if (rating) {
+        const badge = document.createElement("span");
+        badge.className = "movies-rating";
+        badge.textContent = rating;
+        fallback.append(badge);
+      }
+      box.replaceChildren(fallback);
+    },
+    true
+  );
 
   root.addEventListener("click", (e) => {
     const modeBtn = e.target.closest("[data-mode]");
-    if (modeBtn) {
+    if (modeBtn && root.contains(modeBtn)) {
       state.mode = modeBtn.dataset.mode === "cinema" ? "cinema" : "movie";
-      syncPressed();
+      state.movieId = "";
+      state.cinemaId = "";
       paintResults();
       return;
     }
-    const movieBtn = e.target.closest("[data-pick-movie]");
-    if (movieBtn) {
-      state.movieId = movieBtn.dataset.pickMovie || "all";
+    if (e.target.closest("[data-search-toggle]")) {
+      state.searchOpen = !state.searchOpen;
+      syncPressed();
+      if (state.searchOpen) root.querySelector("#movies-q")?.focus();
+      return;
+    }
+    if (e.target.closest("[data-view-toggle]")) {
+      state.view = state.view === "list" ? "grid" : "list";
+      paintResults();
+      return;
+    }
+    const tab = e.target.closest("[data-list]");
+    if (tab && root.contains(tab)) {
+      state.list = LISTS.some((item) => item.id === tab.dataset.list) ? tab.dataset.list : "now";
+      state.movieId = "";
+      paintResults();
+      return;
+    }
+    if (e.target.closest("[data-back]")) {
+      state.movieId = "";
+      paintResults();
+      return;
+    }
+    const openMovie = e.target.closest("[data-open-movie]");
+    if (openMovie && root.contains(openMovie)) {
+      state.movieId = openMovie.dataset.openMovie || "";
       paintResults();
       return;
     }
     const cinemaBtn = e.target.closest("[data-pick-cinema]");
-    if (cinemaBtn) {
-      state.cinemaId = cinemaBtn.dataset.pickCinema || "";
+    if (cinemaBtn && root.contains(cinemaBtn)) {
+      const id = cinemaBtn.dataset.pickCinema || "";
+      state.cinemaId = state.cinemaId === id ? "" : id;
       paintResults();
       return;
     }
     const filterBtn = e.target.closest("[data-filter]");
-    if (filterBtn) {
+    if (filterBtn && root.contains(filterBtn)) {
       if (filterBtn.dataset.filter === "region") state.region = filterBtn.dataset.value || "all";
       if (filterBtn.dataset.filter === "chain") state.chain = filterBtn.dataset.value || "all";
-      syncPressed();
       paintResults();
       return;
     }
     if (e.target.closest("[data-hide-past]")) {
       state.hidePast = !state.hidePast;
-      syncPressed();
       paintResults();
     }
   });
