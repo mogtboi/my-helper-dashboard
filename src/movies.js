@@ -155,10 +155,11 @@ function pillLabel(show, today) {
   return bits.filter(Boolean).join(" · ");
 }
 
-function buyLink(url) {
+function buyLink(url, directory = false) {
   if (!url) return "";
   const href = escapeHtml(url);
-  return `<a class="movies-buy" href="${href}" target="_blank" rel="noopener noreferrer">🎟️ 官網買飛 ↗</a>`;
+  const label = directory ? "🎟️ 戲院官網 / 即時場次 ↗" : "🎟️ 官網買飛 ↗";
+  return `<a class="movies-buy" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
 }
 
 function timePill(show, url, today) {
@@ -280,6 +281,33 @@ export function createMovies(root, { onStatus } = {}) {
     return `🎬 ${escapeHtml(cinemaCount(movie))}間上映`;
   };
 
+  const todayStats = (movie) => {
+    const today = hktToday();
+    const ids = new Set();
+    let shows = 0;
+    for (const show of movie.showtimes || []) {
+      const date = show.date || today;
+      if (date !== today) continue;
+      shows += 1;
+      if (show.cinemaId) ids.add(show.cinemaId);
+    }
+    const rating = scoreOf(movie);
+    return { cinemas: ids.size, shows, rating: rating == null ? -1 : rating };
+  };
+
+  const markHot = () => {
+    const ranked = movies()
+      .filter((movie) => listOf(movie) === "now")
+      .map((movie) => ({ movie, ...todayStats(movie) }))
+      .filter((row) => row.shows > 0)
+      .sort((a, b) => b.shows - a.shows || b.cinemas - a.cinemas || b.rating - a.rating);
+    const hot = new Set(ranked.slice(0, 6).map((row) => row.movie.id));
+    for (const movie of movies()) {
+      if (listOf(movie) !== "now") continue;
+      movie.hot = hot.has(movie.id);
+    }
+  };
+
   const titleHtml = (movie) => {
     const hot = movie.hot === true ? "🔥 " : "";
     return `${hot}${escapeHtml(movie.title || "")}`;
@@ -287,10 +315,19 @@ export function createMovies(root, { onStatus } = {}) {
 
   const filmsForTab = () => {
     const q = query();
-    return movies().filter((movie) => {
+    const matched = movies().filter((movie) => {
       if (listOf(movie) !== state.list) return false;
       if (!q) return true;
       return String(movie.title || "").toLowerCase().includes(q);
+    });
+    if (state.list !== "now") return matched;
+    return matched.slice().sort((a, b) => {
+      const sa = todayStats(a);
+      const sb = todayStats(b);
+      const aZero = sa.cinemas === 0 ? 1 : 0;
+      const bZero = sb.cinemas === 0 ? 1 : 0;
+      if (aZero !== bZero) return aZero - bZero;
+      return sb.cinemas - sa.cinemas || sb.shows - sa.shows || sb.rating - sa.rating;
     });
   };
 
@@ -325,7 +362,8 @@ export function createMovies(root, { onStatus } = {}) {
         return { cinema, titles };
       })
       .filter((row) => {
-        if (!row.titles.length) return false;
+        const listed = movies().some((movie) => (movie.showtimes || []).some((show) => show.cinemaId === row.cinema.id));
+        if (listed && !row.titles.length) return false;
         const q = query();
         if (!q) return true;
         return (
@@ -441,6 +479,7 @@ export function createMovies(root, { onStatus } = {}) {
   const resultsHtml = () => {
     if (loadError && !payload) return `<p class="error">${escapeHtml(loadError)}</p>`;
     if (!payload) return `<p class="muted">載入場次…</p>`;
+    markHot();
     const note = payload.sample
       ? `<p class="movies-sample">${escapeHtml(payload.note || "示範場次。即時抓取空白或失敗時用呢份資料。")}</p>`
       : "";
@@ -452,10 +491,11 @@ export function createMovies(root, { onStatus } = {}) {
           const open = row.cinema.id === state.cinemaId;
           const url = safeBuyUrl(row.cinema);
           const where = badgeText(row.cinema);
+          const directory = row.titles.length === 0;
           const detail = open
             ? `<div class="movies-expand">
                 ${where ? `<p class="movies-where">${escapeHtml(where)}</p>` : ""}
-                ${buyLink(url)}
+                ${buyLink(url, directory)}
                 ${row.titles
                   .map((movie) => {
                     const today = hktToday();

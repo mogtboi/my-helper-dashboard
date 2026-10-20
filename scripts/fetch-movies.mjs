@@ -34,6 +34,55 @@ const CHAINS = [
 
 const NOTES = [];
 
+/**
+ * Hand-written house list for chains whose public pages do not yield a schedule.
+ * Directory only: no showtimes. Official homepages, https, no userinfo.
+ */
+const DIRECTORY = [
+  { id: "broadway-hollywood", name: "荷里活百老匯", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
+  { id: "broadway-gala-langham", name: "GALA 朗豪坊", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
+  { id: "broadway-moko-bplus", name: "MOKO B+", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
+  { id: "broadway-my-cinema-yoho", name: "MY CINEMA YOHO MALL", region: "nt", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
+  { id: "broadway-tsuen-wan", name: "荃灣百老匯", region: "nt", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
+  { id: "broadway-festival-grand", name: "Festival Grand 又一城", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
+  { id: "broadway-palace-apm", name: "PALACE apm", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
+  { id: "broadway-cyberport", name: "數碼港百老匯", region: "hki", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
+  { id: "mcl-k11-art-house", name: "K11 Art House", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "mcl-telford", name: "MCL 德福", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "mcl-airside", name: "MCL Airside", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "mcl-lohas", name: "MCL The Lohas", region: "nt", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "mcl-kornhill", name: "MCL 康怡", region: "hki", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "mcl-amoy", name: "MCL 淘大", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "mcl-luk-yeung", name: "MCL 綠楊", region: "nt", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "mcl-stars", name: "MCL 星光", region: "nt", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "mcl-jp", name: "MCL JP", region: "hki", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "mcl-d2", name: "MCL D2 Place", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
+  { id: "gh-the-sky", name: "嘉禾 the sky 奧海城", region: "kln", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
+  { id: "gh-whampoa", name: "嘉禾黃埔", region: "kln", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
+  { id: "gh-stage-tuen-mun", name: "嘉禾 StagE 屯門", region: "nt", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
+  { id: "gh-mikiki", name: "嘉禾 Mikiki", region: "kln", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
+  { id: "gh-maritime", name: "嘉禾青衣城", region: "nt", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
+];
+
+function withDirectory(cinemas) {
+  const seen = new Set(cinemas.map((cinema) => cinema.id));
+  const next = [...cinemas];
+  for (const row of DIRECTORY) {
+    if (seen.has(row.id)) continue;
+    let officialUrl = "";
+    try {
+      const url = new URL(row.officialUrl);
+      if (url.protocol === "https:" && !url.username && !url.password) officialUrl = url.href;
+    } catch {
+      officialUrl = "";
+    }
+    if (!officialUrl) continue;
+    seen.add(row.id);
+    next.push({ ...row, officialUrl });
+  }
+  return next;
+}
+
 function keep(reason) {
   console.log(`movies: kept existing file (${reason})`);
   if (NOTES.length) console.log(NOTES.map((n) => `movies: ${n}`).join("\n"));
@@ -365,7 +414,7 @@ async function main() {
     sample: false,
     updated: today,
     note: "",
-    cinemas: merged.cinemas,
+    cinemas: withDirectory(merged.cinemas),
     movies: merged.movies,
   };
   try {

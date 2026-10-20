@@ -73,6 +73,167 @@
       "region": "hki",
       "chain": "cinemacity",
       "officialUrl": "https://www.cinemacity.com.hk/"
+    },
+    {
+      "id": "broadway-hollywood",
+      "name": "荷里活百老匯",
+      "region": "kln",
+      "chain": "broadway",
+      "officialUrl": "https://www.cinema.com.hk/"
+    },
+    {
+      "id": "broadway-gala-langham",
+      "name": "GALA 朗豪坊",
+      "region": "kln",
+      "chain": "broadway",
+      "officialUrl": "https://www.cinema.com.hk/"
+    },
+    {
+      "id": "broadway-moko-bplus",
+      "name": "MOKO B+",
+      "region": "kln",
+      "chain": "broadway",
+      "officialUrl": "https://www.cinema.com.hk/"
+    },
+    {
+      "id": "broadway-my-cinema-yoho",
+      "name": "MY CINEMA YOHO MALL",
+      "region": "nt",
+      "chain": "broadway",
+      "officialUrl": "https://www.cinema.com.hk/"
+    },
+    {
+      "id": "broadway-tsuen-wan",
+      "name": "荃灣百老匯",
+      "region": "nt",
+      "chain": "broadway",
+      "officialUrl": "https://www.cinema.com.hk/"
+    },
+    {
+      "id": "broadway-festival-grand",
+      "name": "Festival Grand 又一城",
+      "region": "kln",
+      "chain": "broadway",
+      "officialUrl": "https://www.cinema.com.hk/"
+    },
+    {
+      "id": "broadway-palace-apm",
+      "name": "PALACE apm",
+      "region": "kln",
+      "chain": "broadway",
+      "officialUrl": "https://www.cinema.com.hk/"
+    },
+    {
+      "id": "broadway-cyberport",
+      "name": "數碼港百老匯",
+      "region": "hki",
+      "chain": "broadway",
+      "officialUrl": "https://www.cinema.com.hk/"
+    },
+    {
+      "id": "mcl-k11-art-house",
+      "name": "K11 Art House",
+      "region": "kln",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "mcl-telford",
+      "name": "MCL 德福",
+      "region": "kln",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "mcl-airside",
+      "name": "MCL Airside",
+      "region": "kln",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "mcl-lohas",
+      "name": "MCL The Lohas",
+      "region": "nt",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "mcl-kornhill",
+      "name": "MCL 康怡",
+      "region": "hki",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "mcl-amoy",
+      "name": "MCL 淘大",
+      "region": "kln",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "mcl-luk-yeung",
+      "name": "MCL 綠楊",
+      "region": "nt",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "mcl-stars",
+      "name": "MCL 星光",
+      "region": "nt",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "mcl-jp",
+      "name": "MCL JP",
+      "region": "hki",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "mcl-d2",
+      "name": "MCL D2 Place",
+      "region": "kln",
+      "chain": "mcl",
+      "officialUrl": "https://www.mclcinema.com/"
+    },
+    {
+      "id": "gh-the-sky",
+      "name": "嘉禾 the sky 奧海城",
+      "region": "kln",
+      "chain": "goldenharvest",
+      "officialUrl": "https://www.goldenharvest.com/"
+    },
+    {
+      "id": "gh-whampoa",
+      "name": "嘉禾黃埔",
+      "region": "kln",
+      "chain": "goldenharvest",
+      "officialUrl": "https://www.goldenharvest.com/"
+    },
+    {
+      "id": "gh-stage-tuen-mun",
+      "name": "嘉禾 StagE 屯門",
+      "region": "nt",
+      "chain": "goldenharvest",
+      "officialUrl": "https://www.goldenharvest.com/"
+    },
+    {
+      "id": "gh-mikiki",
+      "name": "嘉禾 Mikiki",
+      "region": "kln",
+      "chain": "goldenharvest",
+      "officialUrl": "https://www.goldenharvest.com/"
+    },
+    {
+      "id": "gh-maritime",
+      "name": "嘉禾青衣城",
+      "region": "nt",
+      "chain": "goldenharvest",
+      "officialUrl": "https://www.goldenharvest.com/"
     }
   ],
   "movies": [
@@ -83,28 +244,6 @@
       "rating": "IIB",
       "runtime": 119,
       "showtimes": [
-        {
-          "cinemaId": "emperor-57007",
-          "date": "2026-10-20",
-          "time": "15:05",
-          "house": "House 5",
-          "price": 95
-        },
-        {
-          "cinemaId": "emperor-57005",
-          "date": "2026-10-20",
-          "time": "15:15",
-          "house": "House 1",
-          "price": 100
-        },
-        {
-          "cinemaId": "emperor-57002",
-          "date": "2026-10-20",
-          "time": "15:20",
-          "house": "House 3",
-          "format": "ATMOS",
-          "price": 120
-        },
         {
           "cinemaId": "emperor-57002",
           "date": "2026-10-20",
@@ -317,13 +456,6 @@
       "runtime": 94,
       "showtimes": [
         {
-          "cinemaId": "emperor-57010",
-          "date": "2026-10-20",
-          "time": "15:15",
-          "house": "House 2",
-          "price": 60
-        },
-        {
           "cinemaId": "emperor-57003",
           "date": "2026-10-20",
           "time": "16:05",
@@ -415,13 +547,6 @@
       "rating": "IIA",
       "runtime": 108,
       "showtimes": [
-        {
-          "cinemaId": "emperor-57002",
-          "date": "2026-10-20",
-          "time": "15:15",
-          "house": "House 5",
-          "price": 110
-        },
         {
           "cinemaId": "emperor-57008",
           "date": "2026-10-20",
@@ -679,13 +804,6 @@
       "runtime": 119,
       "showtimes": [
         {
-          "cinemaId": "emperor-57008",
-          "date": "2026-10-20",
-          "time": "15:20",
-          "house": "House 2",
-          "price": 75
-        },
-        {
           "cinemaId": "emperor-57006",
           "date": "2026-10-20",
           "time": "16:20",
@@ -738,13 +856,6 @@
       "rating": "I",
       "runtime": 133,
       "showtimes": [
-        {
-          "cinemaId": "emperor-57002",
-          "date": "2026-10-20",
-          "time": "15:10",
-          "house": "House 1",
-          "price": 110
-        },
         {
           "cinemaId": "emperor-57002",
           "date": "2026-10-20",
@@ -1188,20 +1299,6 @@
       "runtime": 81,
       "showtimes": [
         {
-          "cinemaId": "emperor-57003",
-          "date": "2026-10-20",
-          "time": "15:10",
-          "house": "House 5",
-          "price": 120
-        },
-        {
-          "cinemaId": "emperor-57007",
-          "date": "2026-10-20",
-          "time": "15:20",
-          "house": "House 3",
-          "price": 95
-        },
-        {
           "cinemaId": "emperor-57010",
           "date": "2026-10-20",
           "time": "15:55",
@@ -1277,13 +1374,6 @@
           "time": "20:15",
           "house": "House 5",
           "price": 75
-        },
-        {
-          "cinemaId": "cinemacity-55002",
-          "date": "2026-10-20",
-          "time": "15:30",
-          "house": "2院",
-          "price": 63
         },
         {
           "cinemaId": "cinemacity-55001",
