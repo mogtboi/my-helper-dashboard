@@ -409,13 +409,16 @@ async function main() {
   NOTES.push("broadway cinema.com.hk, mclcinema.com, and goldenharvest.com did not return a parseable public schedule from this environment");
   const merged = mergeChains(parts);
   if (!merged.movies.length) keep("no fetched films");
+  // The written movie list is this refresh only. Titles absent from the source are not copied back from the old file.
+  const sourceKeys = new Set(merged.movies.map((movie) => `${movie.list}\n${movie.title}`));
+  const movies = merged.movies.filter((movie) => sourceKeys.has(`${movie.list}\n${movie.title}`));
   const next = {
     source: "live",
     sample: false,
     updated: today,
     note: "",
     cinemas: withDirectory(merged.cinemas),
-    movies: merged.movies,
+    movies,
   };
   try {
     writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`);

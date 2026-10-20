@@ -57,10 +57,24 @@ async function etasFor(stop, route, dir) {
   const url = `${CTB}/eta/CTB/${encodeURIComponent(stop)}/${encodeURIComponent(route)}`;
   const res = await loadJson(url);
   if (!res.ok) return { ok: false, rows: [], message: res.message };
+  const now = Date.now();
   const rows = (Array.isArray(res.data?.data) ? res.data.data : [])
     .filter((row) => !dir || row.dir === dir)
-    .filter((row) => row.eta || String(row.rmk_tc || "").trim())
-    .sort((a, b) => (Date.parse(a.eta || "") || Infinity) - (Date.parse(b.eta || "") || Infinity))
+    .filter((row) => {
+      if (!row?.eta) return Boolean(String(row?.rmk_tc || "").trim());
+      const stamp = Date.parse(row.eta);
+      return Number.isFinite(stamp) && stamp >= now - 30000;
+    })
+    .sort((a, b) => {
+      const ta = Date.parse(a.eta || "");
+      const tb = Date.parse(b.eta || "");
+      const aOk = Number.isFinite(ta);
+      const bOk = Number.isFinite(tb);
+      if (aOk && bOk) return ta - tb;
+      if (aOk) return -1;
+      if (bOk) return 1;
+      return 0;
+    })
     .slice(0, 3);
   return { ok: true, rows, message: "" };
 }

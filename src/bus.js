@@ -128,13 +128,15 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     onSelectionPersist?.(next);
   };
 
+  const actionHost = () => actionsEl || root;
+
   const updateFresh = () => {
-    const el = document.querySelector("#bus-fresh");
+    const el = actionHost().querySelector("#bus-fresh");
     if (el) el.textContent = freshnessLabel(lastFetchAt);
   };
 
   const updateStar = () => {
-    const btn = document.querySelector("#bus-star-btn");
+    const btn = actionHost().querySelector("#bus-star-btn");
     if (!btn || !current) return;
     const on = isPinned(selection, current);
     btn.setAttribute("aria-pressed", String(on));
@@ -590,6 +592,8 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
   };
 
   const onDocClick = (e) => {
+    const host = actionHost();
+    if (!host.contains(e.target) && !root.contains(e.target)) return;
     if (e.target.closest("#bus-reverse-btn")) {
       e.preventDefault();
       reverseDirection();

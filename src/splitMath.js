@@ -44,16 +44,30 @@ export function splitProportional(amounts, totalPaid) {
 }
 
 /**
- * Mode 3: split 運費+平台費 evenly.
- * The leftover gap (總計 − 小計 − 運費平台費) follows each dish's share of 小計.
+ * Mode 3: 運費+平台費 split evenly.
+ * Coupon and extra discount follow each dish's share of 小計.
+ * A typed 總計 that differs from 小計 − coupon − extra + fee is the residual, also proportional.
  */
-export function splitFeeThenProportional(amounts, totalPaid, fee) {
+export function splitCouponFee(amounts, totalPaid, { coupon = 0, extra = 0, fee = 0 } = {}) {
   const n = amounts.length;
   const sub = sumAmounts(amounts);
-  const feeEach = n ? fee / n : 0;
-  const rest = totalPaid - sub - fee;
-  if (!sub) return amounts.map(() => null);
-  return amounts.map((amount) => amount + feeEach + rest * (amount / sub));
+  if (!n || !sub) return amounts.map(() => null);
+  const feeEach = fee / n;
+  const discount = coupon + extra;
+  const auto = sub - discount + fee;
+  const residual = totalPaid - auto;
+  return amounts.map(
+    (amount) => amount + feeEach - (discount * amount) / sub + (residual * amount) / sub
+  );
+}
+
+/** Mode 3 when only a fee and a total are known. */
+export function splitFeeThenProportional(amounts, totalPaid, fee) {
+  return splitCouponFee(amounts, totalPaid, { fee });
+}
+
+export function keetaTotal(sub, coupon, extra, fee) {
+  return sub - coupon - extra + fee;
 }
 
 /**
@@ -80,7 +94,14 @@ export function allocateRounded(exact, places) {
   return {
     shares: units.map((u) => u / factor),
     total: targetUnits / factor,
+    adjusted: units.map((unit, index) => unit !== floors[index]),
   };
+}
+
+/** Round each share up so the payer is not short. The ceiled sum can exceed the receipt. */
+export function ceilShares(exact) {
+  const shares = exact.map((value) => (Number.isFinite(value) ? Math.ceil(value - 1e-9) : 0));
+  return { shares, total: sumAmounts(shares) };
 }
 
 /** Independent rounding, before remainder allocation. */
@@ -117,6 +138,21 @@ export function dineShares(amounts, { discountZhe, order, deposit, split }) {
     net,
     shares: amounts.map((amount) => amount * factor - depEach),
   };
+}
+
+/**
+ * Foreign amount after the chosen tax mode.
+ * jp: 税込 ÷ 1.1, nearest whole unit (15800 JPY → 14364).
+ * dept: that figure, then minus 1.55%, nearest whole unit.
+ * off: straight percent off the sticker. none: sticker unchanged.
+ */
+export function fxAfterForeign(sticker, mode, customPct = 0) {
+  const price = Number(sticker);
+  if (!Number.isFinite(price)) return null;
+  if (mode === "jp") return Math.round(price / 1.1);
+  if (mode === "dept") return Math.round(Math.round(price / 1.1) * (1 - 0.0155));
+  if (mode === "off") return price * (1 - Number(customPct) / 100);
+  return price;
 }
 
 /** Card vs cash on the same after-refund foreign amount. rate is HKD per 1 foreign unit. */

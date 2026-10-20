@@ -54,7 +54,7 @@ app.innerHTML = `
   </header>
 
   <div id="view-home" class="app-view">
-    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／買車成本／戲院場次／交通總覽／夾錢／匯率計數／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
+    <p class="reorder-hint muted">☰ 選單：日常出行、戲院、夾錢、外幣、買車成本、設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
 
     <div id="panel-stack" class="panel-stack">
       <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
@@ -109,10 +109,20 @@ app.innerHTML = `
   <div id="view-split" class="app-view" hidden>
     <section class="panel split-page-panel" aria-labelledby="split-title">
       <div class="panel-head">
-        <h2 id="split-title">夾錢／匯率計數</h2>
+        <h2 id="split-title">外賣／堂食夾錢</h2>
       </div>
-      <p class="muted split-intro">Keeta 外賣夾單・堂食加一・外幣免稅回贈</p>
+      <p class="muted split-intro">Keeta 外賣夾單・堂食加一</p>
       <div id="split-root"></div>
+    </section>
+  </div>
+
+  <div id="view-fx" class="app-view" hidden>
+    <section class="panel split-page-panel" aria-labelledby="fx-title">
+      <div class="panel-head">
+        <h2 id="fx-title">外幣／退稅計數</h2>
+      </div>
+      <p class="muted split-intro">免稅回贈・簽卡同現金。匯率只存呢部機。</p>
+      <div id="fx-root"></div>
     </section>
   </div>
 
@@ -164,6 +174,7 @@ const viewTco = document.querySelector("#view-tco");
 const viewMovies = document.querySelector("#view-movies");
 const viewTransit = document.querySelector("#view-transit");
 const viewSplit = document.querySelector("#view-split");
+const viewFx = document.querySelector("#view-fx");
 const stack = document.querySelector("#panel-stack");
 
 const VIEW_SUB = {
@@ -172,7 +183,8 @@ const VIEW_SUB = {
   tco: "買車成本模擬",
   movies: "戲院場次",
   transit: "交通總覽",
-  split: "夾錢／匯率計數",
+  split: "外賣／堂食夾錢",
+  fx: "外幣／退稅計數",
 };
 
 const bottomTabs = document.querySelector("#bottom-tabs");
@@ -192,6 +204,7 @@ const showView = (name) => {
   viewMovies.hidden = name !== "movies";
   viewTransit.hidden = name !== "transit";
   viewSplit.hidden = name !== "split";
+  viewFx.hidden = name !== "fx";
   brandSub.textContent = VIEW_SUB[name] || "個人儀表板";
   document.body.dataset.view = name;
   syncBottomTabs(name === "settings" ? "settings" : name);
@@ -245,6 +258,7 @@ const bus = createBus(
     actionsEl: document.querySelector("#bus-actions"),
     onSelectionPersist: (next) => {
       busSelection = next;
+      transitHub.setBusSelection(next);
     },
   }
 );
@@ -260,6 +274,7 @@ const mtr = createMtr(
     },
     onSelectionChange: (next) => {
       mtrSelection = next;
+      transitHub.setMtrSelection(next);
     },
   }
 );
@@ -270,7 +285,8 @@ const movies = createMovies(document.querySelector("#movies-root"), { onStatus: 
 const gmbHome = createGmb(document.querySelector("#gmb-root"), { mode: "home", onStatus: setNet });
 const citybusHome = createCitybus(document.querySelector("#citybus-root"), { mode: "home", onStatus: setNet });
 const parkingHome = createParking(document.querySelector("#parking-root"), { mode: "home", onStatus: setNet });
-const splitPage = createSplitPage(document.querySelector("#split-root"));
+const splitPage = createSplitPage(document.querySelector("#split-root"), { mode: "bill" });
+const fxPage = createSplitPage(document.querySelector("#fx-root"), { mode: "fx" });
 const transitHub = createTransitHub(document.querySelector("#transit-hub-root"), {
   getEnabled: () => moduleEnabled,
   setEnabled: (next) => {
@@ -285,6 +301,17 @@ const transitHub = createTransitHub(document.querySelector("#transit-hub-root"),
     setNet("主頁模組已更新（本機）");
   },
   onStatus: setNet,
+  getBusSelection: () => busSelection,
+  getMtrSelection: () => mtrSelection,
+  onBusSelection: (next) => {
+    busSelection = next;
+    bus.setSelection(next);
+  },
+  onMtrSelection: (next) => {
+    mtrSelection = next;
+    mtr.setSelection(next);
+  },
+  onOpenMtrSettings: () => settings.open("mtr"),
 });
 
 const settings = createAppSettings({
@@ -350,7 +377,12 @@ const drawer = createDrawer({
   onNavigateSplit: () => {
     showView("split");
     splitPage.start();
-    setNet("夾錢／匯率計數（只計本機）");
+    setNet("外賣／堂食夾錢（只計本機）");
+  },
+  onNavigateFx: () => {
+    showView("fx");
+    fxPage.start();
+    setNet("外幣／退稅計數（只計本機）");
   },
 });
 

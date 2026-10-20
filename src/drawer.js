@@ -22,14 +22,28 @@ const CAT_SETTINGS_FOCUS = {
   港鐵: "mtr",
 };
 
-const ROOT_ITEMS = [
-  { id: "home", nameTc: "主頁", blurb: "儀表板各資訊面板" },
-  { id: "traffic", nameTc: "交通消息", blurb: "特別交通消息／封路／改道" },
-  { id: "tco", nameTc: "買車成本", blurb: "買車 vs 搭車 · EV vs 油車 TCO" },
-  { id: "movies", nameTc: "戲院場次", blurb: "上映電影／各區戲院時間表／官網買飛" },
-  { id: "transit", nameTc: "交通總覽", blurb: "九巴、港鐵、專線小巴、城巴、停車場" },
-  { id: "split", nameTc: "夾錢／匯率計數", blurb: "Keeta 外賣夾單・堂食加一・外幣免稅回贈" },
-  { id: "settings", nameTc: "設定", blurb: "加到主頁、天氣／巴士／港鐵等" },
+const DRAWER_GROUPS = [
+  {
+    heading: "日常出行",
+    items: [
+      { id: "home", nameTc: "主頁", blurb: "儀表板各資訊面板" },
+      { id: "transit", nameTc: "交通總覽", blurb: "九巴/港鐵/小巴/城巴/車位" },
+      { id: "traffic", nameTc: "交通消息", blurb: "特別交通消息／封路／改道" },
+    ],
+  },
+  {
+    heading: "生活消閒與工具",
+    items: [
+      { id: "movies", nameTc: "戲院場次", blurb: "上映電影／各區戲院時間表／官網買飛" },
+      { id: "split", nameTc: "🛵 外賣／堂食夾錢", blurb: "Keeta 夾單・堂食加一" },
+      { id: "fx", nameTc: "💴 外幣／退稅計數", blurb: "免稅回贈・簽卡同現金" },
+      { id: "tco", nameTc: "買車成本", blurb: "買車 vs 搭車 · EV vs 油車 TCO" },
+    ],
+  },
+  {
+    heading: "系統",
+    items: [{ id: "settings", nameTc: "設定", blurb: "加到主頁、天氣／巴士／港鐵等" }],
+  },
 ];
 
 function toggleRow(mod, on) {
@@ -73,6 +87,7 @@ export function createDrawer({
   onNavigateMovies,
   onNavigateTransit,
   onNavigateSplit,
+  onNavigateFx,
 }) {
   root.innerHTML = `
     <div class="drawer-backdrop" data-drawer-close hidden></div>
@@ -107,17 +122,23 @@ export function createDrawer({
 
   const renderRoot = () => {
     titleEl.textContent = "選單";
-    noteEl.textContent = "主頁、交通消息、買車成本、戲院場次、交通總覽、夾錢，或者入設定管理主頁模組。";
+    noteEl.textContent = "日常出行、生活工具，或者入設定管理主頁模組。";
     backBtn.hidden = true;
     body.innerHTML = `
       <nav class="drawer-cat-list" aria-label="選單">
-        ${ROOT_ITEMS.map(
-          (item) => `
+        ${DRAWER_GROUPS.map(
+          (group) => `
+          <h3 class="drawer-group-title">${group.heading}</h3>
+          ${group.items
+            .map(
+              (item) => `
           <button type="button" class="drawer-cat-link" data-root-nav="${item.id}">
             <span class="drawer-cat-link-title">${item.nameTc}</span>
             <span class="drawer-cat-link-blurb">${item.blurb}</span>
             <span class="drawer-cat-link-chevron" aria-hidden="true">›</span>
           </button>`
+            )
+            .join("")}`
         ).join("")}
       </nav>
     `;
@@ -308,6 +329,11 @@ export function createDrawer({
       if (id === "split") {
         setOpen(false);
         onNavigateSplit?.();
+        return;
+      }
+      if (id === "fx") {
+        setOpen(false);
+        onNavigateFx?.();
         return;
       }
       if (id === "settings") {

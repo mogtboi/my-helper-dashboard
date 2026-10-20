@@ -23,6 +23,8 @@ const LISTS = [
   { id: "special", label: "特備節目" },
 ];
 
+const PAGE_SIZE = 30;
+
 const CHAIN_LABEL = Object.fromEntries(CHAINS.filter((c) => c.id !== "all").map((c) => [c.id, c.label]));
 const REGION_LABEL = Object.fromEntries(REGIONS.filter((r) => r.id !== "all").map((r) => [r.id, r.label]));
 
@@ -193,7 +195,8 @@ function starsHtml(score) {
   return `<span class="movies-stars" aria-hidden="true">${marks}</span>`;
 }
 
-function scoreRow(movie) {
+function scoreRow(movie, hideScore) {
+  if (hideScore) return "";
   const score = scoreOf(movie);
   const num = score == null ? "--" : score.toFixed(1);
   return `<span class="movies-score-num${score == null ? " is-empty" : ""}">${escapeHtml(num)}</span>${starsHtml(score)}`;
@@ -226,10 +229,13 @@ export function createMovies(root, { onStatus } = {}) {
     query: "",
     movieId: "",
     cinemaId: "",
+    showRest: false,
+    shown: PAGE_SIZE,
   };
   let payload = null;
   let loadError = "";
   let started = false;
+  let listObserver = null;
 
   const cinemas = () => (Array.isArray(payload?.cinemas) ? payload.cinemas : []);
   const movies = () => (Array.isArray(payload?.movies) ? payload.movies : []);
@@ -269,7 +275,19 @@ export function createMovies(root, { onStatus } = {}) {
     return ids.size;
   };
 
+  const scoresAreFallback = () => {
+    const rows = movies();
+    if (!rows.length) return false;
+    const scores = rows.map((movie) => scoreOf(movie));
+    if (scores.some((score) => score == null)) return false;
+    return scores.every((score) => score === scores[0]);
+  };
+
   const metaHtml = (movie) => {
+    if (scoresAreFallback()) {
+      const stats = todayStats(movie);
+      return escapeHtml(`🎬 ${stats.cinemas}間上映 · 今日 ${stats.shows}場`);
+    }
     const likes = countOf(movie.likeCount);
     const comments = countOf(movie.commentCount);
     if (likes != null || comments != null) {
@@ -423,7 +441,7 @@ export function createMovies(root, { onStatus } = {}) {
     <button type="button" class="movies-cell" data-open-movie="${escapeHtml(movie.id)}">
       ${posterHtml(movie)}
       <span class="movies-cell-title">${titleHtml(movie)}</span>
-      <span class="movies-cell-score">${scoreRow(movie)}</span>
+      <span class="movies-cell-score">${scoreRow(movie, scoresAreFallback())}</span>
       <span class="movies-cell-meta">${metaHtml(movie)}</span>
     </button>
   `;
@@ -433,7 +451,7 @@ export function createMovies(root, { onStatus } = {}) {
       ${posterHtml(movie)}
       <span class="movies-row-copy">
         <span class="movies-cell-title">${titleHtml(movie)}</span>
-        <span class="movies-cell-score">${scoreRow(movie)}</span>
+        <span class="movies-cell-score">${scoreRow(movie, scoresAreFallback())}</span>
         <span class="movies-cell-meta">${metaHtml(movie)}</span>
       </span>
     </button>
@@ -468,7 +486,7 @@ export function createMovies(root, { onStatus } = {}) {
         <div class="movies-drill-copy">
           <h3 class="movies-drill-title">${titleHtml(movie)}</h3>
           <div class="movies-drill-meta">${rating}${runtime}</div>
-          <div class="movies-cell-score">${scoreRow(movie)}</div>
+          <div class="movies-cell-score">${scoreRow(movie, scoresAreFallback())}</div>
         </div>
       </div>
       ${filtersHtml()}
@@ -526,12 +544,124 @@ export function createMovies(root, { onStatus } = {}) {
       return `${note}${drillHtml(movie)}`;
     }
 
-    const films = filmsForTab();
-    const grid =
-      state.view === "list"
-        ? `<div class="movies-list">${films.map(filmListRow).join("")}</div>`
-        : `<div class="movies-grid">${films.map(filmCell).join("")}</div>`;
-    return `${note}${grid || `<p class="movies-empty muted">呢個分類暫時冇電影</p>`}`;
+    return note;
+  };
+
+  const filmPools = () => {
+    const rows = filmsForTab();
+    if (state.list !== "now") return { live: rows, rest: [] };
+    const live = [];
+    const rest = [];
+    for (const movie of rows) {
+      if (todayStats(movie).shows === 0) rest.push(movie);
+      else live.push(movie);
+    }
+    return { live, rest };
+  };
+
+  const appendFilmNodes = (grid, films) => {
+    const frag = document.createDocumentFragment();
+    for (const movie of films) {
+      const holder = document.createElement("div");
+      holder.innerHTML = state.view === "list" ? filmListRow(movie) : filmCell(movie);
+      if (holder.firstElementChild) frag.append(holder.firstElementChild);
+    }
+    grid.append(frag);
+  };
+
+  const disconnectList = () => {
+    listObserver?.disconnect();
+    listObserver = null;
+  };
+
+  const paintFilmGrid = () => {
+    disconnectList();
+    state.shown = PAGE_SIZE;
+    const box = root.querySelector("#movies-results");
+    if (!box) return;
+    const { live, rest } = filmPools();
+    const pool = () => live;
+    box.replaceChildren();
+    if (payload?.sample) {
+      const sample = document.createElement("p");
+      sample.className = "movies-sample";
+      sample.textContent = payload.note || "示範場次。即時抓取空白或失敗時用呢份資料。";
+      box.append(sample);
+    }
+    const grid = document.createElement("div");
+    grid.className = state.view === "list" ? "movies-list" : "movies-grid";
+    grid.id = "movies-film-grid";
+    const first = pool().slice(0, PAGE_SIZE);
+    appendFilmNodes(grid, first);
+    state.shown = first.length;
+    box.append(grid);
+    if (!pool().length) {
+      const empty = document.createElement("p");
+      empty.className = "movies-empty muted";
+      empty.textContent = "呢個分類暫時冇電影";
+      box.append(empty);
+    }
+    const more = document.createElement("div");
+    more.className = "movies-more";
+    const sentinel = document.createElement("div");
+    sentinel.className = "movies-sentinel";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "movies-more-btn";
+    btn.textContent = "載入更多 (+30)";
+    more.append(sentinel, btn);
+    box.append(more);
+    const updateMore = () => {
+      const done = state.shown >= pool().length;
+      btn.hidden = done;
+      sentinel.hidden = done;
+    };
+    const loadMore = () => {
+      const rows = pool();
+      if (state.shown >= rows.length) {
+        updateMore();
+        return;
+      }
+      const next = rows.slice(state.shown, state.shown + PAGE_SIZE);
+      appendFilmNodes(grid, next);
+      state.shown += next.length;
+      updateMore();
+    };
+    btn.addEventListener("click", loadMore);
+    updateMore();
+    if (state.shown < pool().length) {
+      listObserver = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMore();
+      }, { rootMargin: "240px" });
+      listObserver.observe(sentinel);
+    }
+    if (state.list === "now" && rest.length) {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "movies-rest";
+      toggle.dataset.showRest = "1";
+      toggle.setAttribute("aria-pressed", state.showRest ? "true" : "false");
+      toggle.textContent = `顯示其餘 ${rest.length} 套無今日場次電影`;
+      box.append(toggle);
+      if (state.showRest) {
+        const restGrid = document.createElement("div");
+        restGrid.className = grid.className;
+        let restShown = 0;
+        const appendRest = () => {
+          const next = rest.slice(restShown, restShown + PAGE_SIZE);
+          appendFilmNodes(restGrid, next);
+          restShown += next.length;
+          restBtn.hidden = restShown >= rest.length;
+        };
+        const restBtn = document.createElement("button");
+        restBtn.type = "button";
+        restBtn.className = "movies-more-btn";
+        restBtn.textContent = "載入更多 (+30)";
+        restBtn.addEventListener("click", appendRest);
+        appendRest();
+        box.append(restGrid, restBtn);
+      }
+    }
   };
 
   const paintTabs = () => {
@@ -551,7 +681,12 @@ export function createMovies(root, { onStatus } = {}) {
 
   const paintResults = () => {
     const box = root.querySelector("#movies-results");
-    if (box) box.innerHTML = resultsHtml();
+    const filmGrid = state.mode === "movie" && !state.movieId && payload && !loadError;
+    if (filmGrid) paintFilmGrid();
+    else if (box) {
+      disconnectList();
+      box.innerHTML = resultsHtml();
+    }
     paintTabs();
     syncPressed();
   };
@@ -636,6 +771,12 @@ export function createMovies(root, { onStatus } = {}) {
     if (tab && root.contains(tab)) {
       state.list = LISTS.some((item) => item.id === tab.dataset.list) ? tab.dataset.list : "now";
       state.movieId = "";
+      state.showRest = false;
+      paintResults();
+      return;
+    }
+    if (e.target.closest("[data-show-rest]")) {
+      state.showRest = !state.showRest;
       paintResults();
       return;
     }

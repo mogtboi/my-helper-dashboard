@@ -1,85 +1,138 @@
 import { escapeHtml } from "./escapeHtml.js";
 import { saveModuleEnabled } from "./prefsStore.js";
+import { createBus } from "./bus.js";
+import { createMtr } from "./mtr.js";
 import { createGmb } from "./gmb.js";
 import { createCitybus } from "./citybus.js";
 import { createParking } from "./parking.js";
 
 const MODES = [
-  { id: "bus", label: "九巴" },
-  { id: "mtr", label: "港鐵" },
-  { id: "gmb", label: "專線小巴" },
-  { id: "citybus", label: "城巴" },
-  { id: "parking", label: "停車場" },
+  { id: "bus", label: "🚌 九巴" },
+  { id: "mtr", label: "🚇 港鐵" },
+  { id: "gmb", label: "🚐 專線小巴" },
+  { id: "citybus", label: "🚍 城巴" },
+  { id: "parking", label: "🅿️ 停車場" },
 ];
 
-export function createTransitHub(root, { getEnabled, setEnabled, onEnabledChange, onStatus } = {}) {
+export function createTransitHub(root, options = {}) {
+  const {
+    getEnabled,
+    setEnabled,
+    onEnabledChange,
+    onStatus,
+    getBusSelection,
+    getMtrSelection,
+    onBusSelection,
+    onMtrSelection,
+    onOpenMtrSettings,
+  } = options;
+  let active = "bus";
+  let bus;
+  let mtr;
   let gmb;
   let citybus;
   let parking;
-  let started = false;
+  const started = { bus: false, mtr: false, gmb: false, citybus: false, parking: false };
 
-  const paintToggles = () => {
+  const paintModes = () => {
     const enabled = getEnabled?.() || {};
-    const box = root.querySelector("#transit-toggles");
+    const box = root.querySelector("#transit-modes");
     if (!box) return;
     box.innerHTML = MODES.map((mode) => {
       const shown = enabled[mode.id] !== false;
-      return `<div class="transit-toggle">
-        <span>${escapeHtml(mode.label)}</span>
-        <button type="button" data-home-toggle="${escapeHtml(mode.id)}" aria-pressed="${shown ? "true" : "false"}">${shown ? "✓ 已在主頁" : "＋ 加到主頁"}</button>
+      const on = active === mode.id;
+      return `<div class="transit-mode${on ? " is-active" : ""}">
+        <button type="button" class="transit-mode-name" data-pick-mode="${escapeHtml(mode.id)}" aria-pressed="${on ? "true" : "false"}">${escapeHtml(mode.label)}</button>
+        <button type="button" class="transit-home-btn" data-home-toggle="${escapeHtml(mode.id)}" aria-pressed="${shown ? "true" : "false"}">${shown ? "✓ 已在主頁" : "＋ 加到主頁"}</button>
       </div>`;
     }).join("");
   };
 
+  const showPanel = () => {
+    for (const mode of MODES) {
+      const panel = root.querySelector(`#hub-${mode.id}`);
+      if (panel) panel.hidden = mode.id !== active;
+    }
+    paintModes();
+    if (started[active]) {
+      if (active === "bus") bus?.refresh();
+      if (active === "mtr") mtr?.refresh();
+      if (active === "gmb") gmb?.start();
+      if (active === "citybus") citybus?.start();
+      if (active === "parking") parking?.start();
+      return;
+    }
+    started[active] = true;
+    if (active === "bus") bus?.start(getBusSelection?.() || { items: [], activeId: "" });
+    if (active === "mtr") mtr?.start(getMtrSelection?.() || { stations: [], favorites: [], activeId: "" });
+    if (active === "gmb") gmb?.start();
+    if (active === "citybus") citybus?.start();
+    if (active === "parking") parking?.start();
+  };
+
   const shell = () => {
     root.innerHTML = `
-      <p class="muted transit-intro">九巴同港鐵嘅搜尋仍然喺主頁卡。專線小巴、城巴、停車場喺呢度搜，釘選之後先顯示喺主頁。</p>
-      <div id="transit-toggles" class="transit-toggles"></div>
-      <section class="transit-section" aria-labelledby="gmb-hub-title">
-        <h3 id="gmb-hub-title">專線小巴</h3>
-        <div id="gmb-hub"></div>
-      </section>
-      <section class="transit-section" aria-labelledby="ctb-hub-title">
-        <h3 id="ctb-hub-title">城巴</h3>
-        <div id="ctb-hub"></div>
-      </section>
-      <section class="transit-section" aria-labelledby="park-hub-title">
-        <h3 id="park-hub-title">停車場</h3>
-        <div id="park-hub"></div>
-      </section>
+      <p class="muted transit-intro">揀一個交通工具，下面先顯示嗰個搜尋。右邊按鈕只切換主頁卡。</p>
+      <div id="transit-modes" class="transit-modes"></div>
+      <div id="hub-bus" class="transit-panel"></div>
+      <div id="hub-mtr" class="transit-panel" hidden></div>
+      <div id="hub-gmb" class="transit-panel" hidden></div>
+      <div id="hub-citybus" class="transit-panel" hidden></div>
+      <div id="hub-parking" class="transit-panel" hidden></div>
     `;
-    paintToggles();
-    gmb = createGmb(root.querySelector("#gmb-hub"), { mode: "hub", onStatus });
-    citybus = createCitybus(root.querySelector("#ctb-hub"), { mode: "hub", onStatus });
-    parking = createParking(root.querySelector("#park-hub"), { mode: "hub", onStatus });
+    const busActions = document.createElement("div");
+    busActions.className = "transit-hub-actions";
+    root.querySelector("#hub-bus").append(busActions);
+    const busBody = document.createElement("div");
+    root.querySelector("#hub-bus").append(busBody);
+    bus = createBus(busBody, null, {
+      onStatus,
+      actionsEl: busActions,
+      onSelectionPersist: (next) => onBusSelection?.(next),
+    });
+    mtr = createMtr(root.querySelector("#hub-mtr"), null, {
+      onStatus,
+      onOpenSettings: () => onOpenMtrSettings?.(),
+      onSelectionChange: (next) => onMtrSelection?.(next),
+    });
+    gmb = createGmb(root.querySelector("#hub-gmb"), { mode: "hub", onStatus });
+    citybus = createCitybus(root.querySelector("#hub-citybus"), { mode: "hub", onStatus });
+    parking = createParking(root.querySelector("#hub-parking"), { mode: "hub", onStatus });
+    showPanel();
   };
 
   root.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-home-toggle]");
-    if (!btn || !root.contains(btn)) return;
-    const id = btn.dataset.homeToggle;
-    const enabled = { ...(getEnabled?.() || {}) };
-    const shown = enabled[id] !== false;
-    enabled[id] = !shown;
-    const next = saveModuleEnabled(enabled);
-    setEnabled?.(next);
-    onEnabledChange?.(next);
-    paintToggles();
+    const toggle = e.target.closest("[data-home-toggle]");
+    if (toggle && root.contains(toggle)) {
+      e.stopPropagation();
+      const id = toggle.dataset.homeToggle;
+      const enabled = { ...(getEnabled?.() || {}) };
+      enabled[id] = enabled[id] === false;
+      const next = saveModuleEnabled(enabled);
+      setEnabled?.(next);
+      onEnabledChange?.(next);
+      paintModes();
+      return;
+    }
+    const pick = e.target.closest("[data-pick-mode]");
+    if (!pick || !root.contains(pick)) return;
+    active = pick.dataset.pickMode || "bus";
+    showPanel();
   });
 
   return {
     start() {
-      if (!root.querySelector("#transit-toggles")) shell();
-      paintToggles();
-      if (!started) {
-        started = true;
-        gmb?.start();
-        citybus?.start();
-        parking?.start();
-      }
+      if (!root.querySelector("#transit-modes")) shell();
+      else showPanel();
     },
     refreshToggles() {
-      paintToggles();
+      paintModes();
+    },
+    setBusSelection(next) {
+      if (started.bus) bus?.setSelection(next);
+    },
+    setMtrSelection(next) {
+      if (started.mtr) mtr?.setSelection(next);
     },
   };
 }

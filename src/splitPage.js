@@ -1,12 +1,15 @@
 import {
   DEFAULT_FX_RATES,
   allocateRounded,
+  ceilShares,
   dineMultiplier,
   dineShares,
+  fxAfterForeign,
   fxQuote,
+  keetaTotal,
   parseAmount,
+  splitCouponFee,
   splitEvenGap,
-  splitFeeThenProportional,
   splitProportional,
   sumAmounts,
 } from "./splitMath.js";
@@ -43,8 +46,7 @@ function term(n) {
 
 function signed(n) {
   if (!Number.isFinite(n)) return "?";
-  const body = term(Math.abs(n));
-  return n < 0 ? `−${body}` : body;
+  return n < 0 ? `−${term(Math.abs(n))}` : term(n);
 }
 
 function personLabel(name, index) {
@@ -107,19 +109,26 @@ function legacyCopy(text) {
   return ok;
 }
 
-export function createSplitPage(root) {
+function blankPeople() {
+  return [
+    { name: "", amountRaw: "" },
+    { name: "", amountRaw: "" },
+    { name: "", amountRaw: "" },
+  ];
+}
+
+export function createSplitPage(root, { mode = "bill" } = {}) {
   const state = {
-    tab: "bill",
     sub: "keeta",
-    people: [
-      { name: "", amountRaw: "" },
-      { name: "", amountRaw: "" },
-      { name: "", amountRaw: "" },
-    ],
-    totalRaw: "",
-    keetaMode: "even",
+    people: blankPeople(),
+    couponRaw: "",
+    extraRaw: "",
+    extraPercent: false,
     feeRaw: "",
-    places: 1,
+    totalRaw: "",
+    totalManual: false,
+    keetaMode: "even",
+    round: "tenth",
     discountRaw: "",
     serviceOrder: "after",
     depositRaw: "",
@@ -127,7 +136,7 @@ export function createSplitPage(root) {
     fxCode: "JPY",
     stickerRaw: "",
     taxMode: "none",
-    taxCustom: "",
+    taxCustom: "10",
     cashback: "4",
     cashbackCustom: "",
     rates: loadRates(),
@@ -135,93 +144,97 @@ export function createSplitPage(root) {
 
   root.replaceChildren();
   const page = el("div", "split-page");
-  const tabs = el("div", "split-tabs");
-  const billTab = pillButton("🛵 外賣 / 堂食夾錢", () => {
-    state.tab = "bill";
-    paintShell();
-  });
-  const fxTab = pillButton("💴 外幣 / 免稅回贈", () => {
-    state.tab = "fx";
-    paintShell();
-  });
-  tabs.append(billTab, fxTab);
-
-  const body = el("div", "split-body");
-  page.append(tabs, body);
   root.append(page);
+  if (mode === "fx") paintFx(page);
+  else paintBill(page);
 
-  function pillButton(label, onClick) {
-    const btn = el("button", "split-pill", label);
-    btn.type = "button";
-    btn.addEventListener("click", onClick);
-    return btn;
-  }
-
-  function markPressed(buttons, index) {
-    buttons.forEach((btn, i) => btn.setAttribute("aria-pressed", i === index ? "true" : "false"));
-  }
-
-  function paintShell() {
-    billTab.setAttribute("aria-pressed", state.tab === "bill" ? "true" : "false");
-    fxTab.setAttribute("aria-pressed", state.tab === "fx" ? "true" : "false");
-    body.replaceChildren();
-    if (state.tab === "fx") paintFx();
-    else paintBill();
-  }
-
-  function paintBill() {
-    const subRow = el("div", "split-tabs");
-    const keetaBtn = pillButton("🛵 Keeta / 外賣夾單", () => {
+  function paintBill(host) {
+    host.replaceChildren();
+    const segment = el("div", "split-segment");
+    const keetaBtn = el("button", "split-segment-btn", "🛵 Keeta / 外賣夾單");
+    const dineBtn = el("button", "split-segment-btn", "🍽️ 堂食加一 / 折頭");
+    keetaBtn.type = "button";
+    dineBtn.type = "button";
+    const markSegment = () => {
+      keetaBtn.setAttribute("aria-pressed", state.sub === "keeta" ? "true" : "false");
+      dineBtn.setAttribute("aria-pressed", state.sub === "dine" ? "true" : "false");
+    };
+    keetaBtn.addEventListener("click", () => {
       state.sub = "keeta";
-      paintShell();
+      paintBill(host);
     });
-    const dineBtn = pillButton("🍽️ 堂食加一 / 折頭", () => {
+    dineBtn.addEventListener("click", () => {
       state.sub = "dine";
-      paintShell();
+      paintBill(host);
     });
-    keetaBtn.setAttribute("aria-pressed", state.sub === "keeta" ? "true" : "false");
-    dineBtn.setAttribute("aria-pressed", state.sub === "dine" ? "true" : "false");
-    subRow.append(keetaBtn, dineBtn);
-    body.append(subRow);
+    markSegment();
+    segment.append(keetaBtn, dineBtn);
+    host.append(segment);
 
+    const rowsCard = el("section", "split-card");
+    rowsCard.append(el("h3", "split-card-title", "1. 每人餐點"));
     const rows = el("div", "split-rows");
-    body.append(rows);
+    const subtotal = el("p", "split-subtotal");
     const addBtn = el("button", "split-add", "＋ 加人");
     addBtn.type = "button";
-    addBtn.addEventListener("click", () => {
-      state.people.push({ name: "", amountRaw: "" });
-      paintPeople(rows);
-      paintResults();
-      const last = rows.querySelector(".split-row:last-child input");
-      last?.focus();
-    });
-    body.append(addBtn);
+    rowsCard.append(rows, addBtn, subtotal);
+    host.append(rowsCard);
 
-    const subtotal = el("p", "split-subtotal");
-    body.append(subtotal);
-
-    if (state.sub === "keeta") paintKeetaControls();
-    else paintDineControls();
-
-    const roundRow = el("div", "split-tabs");
-    const oneDp = pillButton("小數 1 位", () => {
-      state.places = 1;
-      markPressed([oneDp, integer], 0);
-      paintResults();
-    });
-    const integer = pillButton("齊頭整數", () => {
-      state.places = 0;
-      markPressed([oneDp, integer], 1);
-      paintResults();
-    });
-    markPressed([oneDp, integer], state.places === 1 ? 0 : 1);
-    roundRow.append(oneDp, integer);
-    body.append(roundRow);
-
+    const payCard = el("section", "split-card");
     const results = el("div", "split-results");
     const copyBtn = el("button", "split-copy", "📋 一鍵複製收錢明細");
     copyBtn.type = "button";
     const copyNote = el("p", "split-note");
+
+    if (state.sub === "keeta") paintKeetaPay(payCard);
+    else paintDinePay(payCard);
+    host.append(payCard);
+
+    const modeCard = el("section", "split-card");
+    modeCard.append(el("h3", "split-card-title", state.sub === "keeta" ? "3. 點樣分" : "2. 點樣分"));
+    if (state.sub === "keeta") {
+      modeCard.append(modeRow(
+        [
+          ["even", "人頭平分差額"],
+          ["ratio", "全單按比例折算"],
+          ["fee", "運費平分＋優惠按比例"],
+        ],
+        () => state.keetaMode,
+        (id) => {
+          state.keetaMode = id;
+        }
+      ));
+    } else {
+      modeCard.append(modeRow(
+        [
+          ["even", "全單平分"],
+          ["each", "各自計餐點價"],
+        ],
+        () => state.dineSplit,
+        (id) => {
+          state.dineSplit = id;
+        }
+      ));
+    }
+    modeCard.append(modeRow(
+      [
+        ["tenth", "小數 1 位"],
+        ["cent", "小數 2 位（PayMe／FPS）"],
+        ["ceil", "齊頭向上"],
+      ],
+      () => state.round,
+      (id) => {
+        state.round = id;
+      }
+    ));
+    modeCard.append(results, copyBtn, copyNote);
+    host.append(modeCard);
+
+    addBtn.addEventListener("click", () => {
+      state.people.push({ name: "", amountRaw: "" });
+      paintPeople();
+      paintResults();
+    });
     copyBtn.addEventListener("click", () => {
       const text = results.dataset.copy || "";
       if (!text) {
@@ -232,10 +245,28 @@ export function createSplitPage(root) {
         copyNote.textContent = ok ? "已複製，可貼去 WhatsApp／PayMe" : "呢部機未允許剪貼簿";
       });
     });
-    body.append(results, copyBtn, copyNote);
 
-    function paintPeople(host) {
-      host.replaceChildren();
+    function modeRow(options, get, set) {
+      const row = el("div", "split-tabs");
+      const buttons = options.map(([id, label]) => {
+        const btn = el("button", "split-pill", label);
+        btn.type = "button";
+        btn.addEventListener("click", () => {
+          set(id);
+          buttons.forEach((item, index) => {
+            item.setAttribute("aria-pressed", options[index][0] === id ? "true" : "false");
+          });
+          paintResults();
+        });
+        btn.setAttribute("aria-pressed", get() === id ? "true" : "false");
+        return btn;
+      });
+      row.append(...buttons);
+      return row;
+    }
+
+    function paintPeople() {
+      rows.replaceChildren();
       state.people.forEach((person, index) => {
         const row = el("div", "split-row");
         const name = document.createElement("input");
@@ -252,7 +283,6 @@ export function createSplitPage(root) {
         const amount = document.createElement("input");
         amount.className = "split-input";
         amount.type = "text";
-        amount.inputMode = "text";
         amount.placeholder = "109.5 或 85+15";
         amount.autocomplete = "off";
         amount.value = person.amountRaw;
@@ -264,109 +294,29 @@ export function createSplitPage(root) {
         const remove = el("button", "split-remove", "移除");
         remove.type = "button";
         remove.addEventListener("click", () => {
-          if (state.people.length <= 1) {
-            state.people[0] = { name: "", amountRaw: "" };
-          } else {
-            state.people.splice(index, 1);
-          }
-          paintPeople(host);
+          if (state.people.length <= 1) state.people[0] = { name: "", amountRaw: "" };
+          else state.people.splice(index, 1);
+          paintPeople();
           paintResults();
         });
         row.append(name, amount, remove);
-        host.append(row);
+        rows.append(row);
       });
     }
 
     function readPeople() {
-      const rowsOut = [];
       let invalid = false;
+      const amounts = [];
+      const shown = [];
       for (const person of state.people) {
         const amount = parseAmount(person.amountRaw);
         if (amount == null) invalid = true;
-        rowsOut.push({ name: person.name, amount });
+        else {
+          amounts.push(amount);
+          if (String(person.amountRaw).trim() !== "") shown.push(term(amount));
+        }
       }
-      return { rows: rowsOut, invalid };
-    }
-
-    function paintKeetaControls() {
-      const totalField = field("總計實付", state.totalRaw, "297.50", (value) => {
-        state.totalRaw = value;
-        paintResults();
-      });
-      body.append(totalField);
-      const gap = el("p", "split-gap");
-      gap.dataset.role = "gap";
-      body.append(gap);
-      const modes = el("div", "split-tabs");
-      const labels = [
-        ["even", "人頭平分差額（推薦）"],
-        ["ratio", "全單按比例折算"],
-        ["fee", "拆細：運費平分＋優惠按比例"],
-      ];
-      const buttons = labels.map(([id, label]) => {
-        const btn = pillButton(label, () => {
-          state.keetaMode = id;
-          buttons.forEach((b, i) => b.setAttribute("aria-pressed", labels[i][0] === id ? "true" : "false"));
-          feeWrap.hidden = id !== "fee";
-          paintResults();
-        });
-        btn.setAttribute("aria-pressed", state.keetaMode === id ? "true" : "false");
-        return btn;
-      });
-      modes.append(...buttons);
-      body.append(modes);
-      const feeWrap = field("運費+平台費總額", state.feeRaw, "18", (value) => {
-        state.feeRaw = value;
-        paintResults();
-      });
-      feeWrap.hidden = state.keetaMode !== "fee";
-      body.append(feeWrap);
-    }
-
-    function paintDineControls() {
-      body.append(
-        field("全單幾折（85 = 85折，100 或留空 = 無折）", state.discountRaw, "85", (value) => {
-          state.discountRaw = value;
-          paintResults();
-        })
-      );
-      const orderRow = el("div", "split-tabs");
-      const after = pillButton("折後加一", () => {
-        state.serviceOrder = "after";
-        markPressed([after, before], 0);
-        paintResults();
-      });
-      const before = pillButton("折前原價加一", () => {
-        state.serviceOrder = "before";
-        markPressed([after, before], 1);
-        paintResults();
-      });
-      markPressed([after, before], state.serviceOrder === "after" ? 0 : 1);
-      orderRow.append(after, before);
-      body.append(orderRow);
-      body.append(
-        el("p", "split-note", "服務費固定加一（+10%）。折後加一先折再加一；折前原價加一係正價加一，折扣唔計落服務費。")
-      );
-      body.append(
-        field("已付訂金", state.depositRaw, "0", (value) => {
-          state.depositRaw = value;
-          paintResults();
-        })
-      );
-      const splitRow = el("div", "split-tabs");
-      const even = pillButton("全單平分", () => {
-        state.dineSplit = "even";
-        markPressed([even, each], 0);
-        paintResults();
-      });
-      const each = pillButton("各自計餐點價", () => {
-        state.dineSplit = "each";
-        markPressed([even, each], 1);
-        paintResults();
-      });
-      markPressed([even, each], state.dineSplit === "even" ? 0 : 1);
-      splitRow.append(even, each);
-      body.append(splitRow);
+      return { invalid, amounts: invalid ? [] : amounts, shown };
     }
 
     function field(label, value, placeholder, onInput) {
@@ -379,96 +329,190 @@ export function createSplitPage(root) {
       input.placeholder = placeholder;
       input.autocomplete = "off";
       input.value = value;
-      input.addEventListener("input", () => onInput(input.value));
+      input.addEventListener("input", () => onInput(input.value, input));
       wrap.append(input);
-      return wrap;
+      return { wrap, input };
+    }
+
+    function paintKeetaPay(card) {
+      card.append(el("h3", "split-card-title", "2. 優惠同實付"));
+      card.append(field("優惠券 / Koupon (-$)", state.couponRaw, "30 或 30+15", (value) => {
+        state.couponRaw = value;
+        state.totalManual = false;
+        paintResults();
+      }).wrap);
+      const extra = field(
+        state.extraPercent ? "支付優惠 / 額外 Discount (%)" : "支付優惠 / 額外 Discount (-$)",
+        state.extraRaw,
+        state.extraPercent ? "10" : "10",
+        (value) => {
+          state.extraRaw = value;
+          state.totalManual = false;
+          paintResults();
+        }
+      );
+      const percentBtn = el("button", "split-pill", state.extraPercent ? "百分比" : "金額");
+      percentBtn.type = "button";
+      percentBtn.setAttribute("aria-pressed", state.extraPercent ? "true" : "false");
+      percentBtn.addEventListener("click", () => {
+        state.extraPercent = !state.extraPercent;
+        state.totalManual = false;
+        paintBill(host);
+      });
+      extra.wrap.append(percentBtn);
+      card.append(extra.wrap);
+      card.append(field("運費 + 平台費 (+$)", state.feeRaw, "5+13", (value) => {
+        state.feeRaw = value;
+        state.totalManual = false;
+        paintResults();
+      }).wrap);
+      const total = field("總計實付", state.totalRaw, "297.50", (value) => {
+        state.totalRaw = value;
+        state.totalManual = true;
+        paintResults();
+      });
+      total.input.dataset.role = "total";
+      card.append(total.wrap);
+      card.append(el("p", "split-note", "有填優惠或運費時，總計會自動計。你仍然可以自己改總計。只填小計同總計，就用兩者嘅差額。"));
+    }
+
+    function paintDinePay(card) {
+      card.append(el("h3", "split-card-title", "堂食加一"));
+      card.append(field("全單幾折（85 = 85折，100 或留空 = 無折）", state.discountRaw, "85", (value) => {
+        state.discountRaw = value;
+        paintResults();
+      }).wrap);
+      card.append(modeRow(
+        [
+          ["after", "折後加一"],
+          ["before", "折前原價加一"],
+        ],
+        () => state.serviceOrder,
+        (id) => {
+          state.serviceOrder = id;
+        }
+      ));
+      card.append(el("p", "split-note", "服務費固定加一（+10%）。折後加一先折再加一；折前原價加一係正價加一，折扣唔計落服務費。"));
+      card.append(field("已付訂金", state.depositRaw, "0", (value) => {
+        state.depositRaw = value;
+        paintResults();
+      }).wrap);
+    }
+
+    function componentValue(raw) {
+      if (String(raw).trim() === "") return 0;
+      return parseAmount(raw);
     }
 
     function paintResults() {
-      const { rows: people, invalid } = readPeople();
-      const amountsKnown = people.map((p) => (p.amount == null ? 0 : p.amount));
-      const shownTerms = [];
-      state.people.forEach((person) => {
-        const amount = parseAmount(person.amountRaw);
-        if (amount == null || String(person.amountRaw).trim() === "") return;
-        shownTerms.push(term(amount));
-      });
-      const known = people.filter((p) => p.amount != null).map((p) => p.amount);
-      subtotal.textContent = invalid
+      const people = readPeople();
+      const known = people.invalid ? [] : people.amounts;
+      subtotal.textContent = people.invalid
         ? "有金額未能計（只接受數字或 85+15 呢種加法）"
-        : `${shownTerms.join(" + ") || "0"} = $${sumAmounts(known).toFixed(2)}`;
-
+        : `${people.shown.join(" + ") || "0"} = $${sumAmounts(known).toFixed(2)}`;
       results.replaceChildren();
       delete results.dataset.copy;
-      const places = state.places === 0 ? 0 : 1;
-
-      if (invalid) {
+      if (people.invalid) {
         results.append(el("p", "split-line", "改啱金額先至計到每人應付。"));
         return;
       }
-
-      if (state.sub === "keeta") paintKeetaResults(people, amountsKnown, places);
-      else paintDineResults(people, amountsKnown, places);
+      if (state.sub === "dine") {
+        paintDineResults(known);
+        return;
+      }
+      paintKeetaResults(known);
     }
 
-    function paintKeetaResults(people, amounts, places) {
-      const total = parseAmount(state.totalRaw);
-      const gapEl = body.querySelector("[data-role='gap']");
-      if (total == null) {
-        if (gapEl) gapEl.textContent = "總計實付格式不正確";
-        results.append(el("p", "split-line", "總計實付只接受數字。"));
-        return;
-      }
-      if (String(state.totalRaw).trim() === "") {
-        if (gapEl) gapEl.textContent = "差額會係 總計 − 小計";
-        results.append(el("p", "split-line", "請輸入總計實付。"));
-        return;
-      }
+    function paintKeetaResults(amounts) {
       const sub = sumAmounts(amounts);
+      const coupon = componentValue(state.couponRaw);
+      const fee = componentValue(state.feeRaw);
+      const extraRaw = componentValue(state.extraRaw);
+      if (coupon == null || fee == null || extraRaw == null) {
+        results.append(el("p", "split-line", "優惠或運費只接受數字，或者 30+15 呢種加法。"));
+        return;
+      }
+      const extra = state.extraPercent ? (sub * extraRaw) / 100 : extraRaw;
+      const filled = [state.couponRaw, state.extraRaw, state.feeRaw].some((value) => String(value).trim() !== "");
+      let total = null;
+      if (state.totalManual && String(state.totalRaw).trim() !== "") {
+        total = parseAmount(state.totalRaw);
+        if (total == null) {
+          results.append(el("p", "split-line", "總計實付只接受數字。"));
+          return;
+        }
+      } else if (filled) {
+        total = keetaTotal(sub, coupon, extra, fee);
+        const input = host.querySelector("[data-role='total']");
+        if (input && document.activeElement !== input) {
+          state.totalRaw = total.toFixed(2);
+          input.value = state.totalRaw;
+        }
+      } else if (String(state.totalRaw).trim() !== "") {
+        total = parseAmount(state.totalRaw);
+        if (total == null) {
+          results.append(el("p", "split-line", "總計實付只接受數字。"));
+          return;
+        }
+      }
+      if (total == null) {
+        results.append(el("p", "split-line", "請輸入總計實付，或者填優惠／運費。"));
+        return;
+      }
       const gap = total - sub;
-      if (gapEl) gapEl.textContent = `差額（總計 − 小計）${signed(gap)}`;
-
       let exact = null;
       if (state.keetaMode === "even") exact = splitEvenGap(amounts, total);
       else if (state.keetaMode === "ratio") exact = splitProportional(amounts, total);
-      else {
-        const fee = parseAmount(state.feeRaw);
-        if (String(state.feeRaw).trim() === "" || fee == null) {
-          results.append(el("p", "split-line", "請輸入運費+平台費總額。"));
-          return;
-        }
-        exact = splitFeeThenProportional(amounts, total, fee);
-      }
-      if (!exact || exact.some((v) => v == null)) {
+      else exact = splitCouponFee(amounts, total, { coupon, extra, fee });
+      if (!exact || exact.some((value) => value == null)) {
         results.append(el("p", "split-line", "小計係 0，未能按比例折算。"));
         return;
       }
-      const allocated = allocateRounded(exact, places);
-      const lines = people.map((person, i) => {
-        const label = personLabel(person.name, i);
-        const formula = keetaFormula(state.keetaMode, amounts[i], sub, total, amounts.length);
-        return { label, dish: amounts[i], pay: allocated.shares[i], formula };
+      const places = state.round === "cent" ? 2 : 1;
+      const rounded = state.round === "ceil" ? ceilShares(exact) : allocateRounded(exact, places);
+      const displayPlaces = state.round === "ceil" ? 0 : places;
+      results.append(el("p", "split-line", `差額（總計 − 小計）${signed(gap)}`));
+      if (state.round === "ceil") {
+        results.append(el("p", "split-line", `齊頭向上合計 ${money(rounded.total, 0)}`));
+      } else {
+        results.append(el("p", "split-line", `應付合計 ${money(rounded.total, displayPlaces)}`));
+      }
+      const lines = amounts.map((amount, index) => {
+        const pay = rounded.shares[index];
+        const mark = state.round === "tenth" && rounded.adjusted?.[index] ? "（已補尾數）" : "";
+        return {
+          label: personLabel(state.people[index]?.name, index),
+          dish: amount,
+          pay,
+          mark,
+          formula: keetaFormula(amount, sub, total, coupon, extra, fee, amounts.length),
+        };
       });
-      renderShareLines(lines, allocated.total, places);
-      const modeName =
-        state.keetaMode === "even"
-          ? "人頭平分差額"
-          : state.keetaMode === "ratio"
-            ? "全單按比例折算"
-            : "運費平分＋優惠按比例";
-      results.dataset.copy = copyBlock(`Keeta／外賣夾單 · ${modeName}`, total, lines, places, allocated.total);
+      for (const line of lines) {
+        const row = el("p", "split-line");
+        row.textContent = `${line.label}　餐點 ${term(line.dish)}　應付 ${money(line.pay, displayPlaces)}${line.mark}`;
+        const formula = el("span", "split-formula");
+        formula.textContent = line.formula;
+        row.append(formula);
+        results.append(row);
+      }
+      results.dataset.copy = [
+        "夾錢明細",
+        "Keeta／外賣夾單",
+        `總計實付 ${money(total, 2)}`,
+        state.round === "ceil" ? `齊頭向上合計 ${money(rounded.total, 0)}` : `應付合計 ${money(rounded.total, displayPlaces)}`,
+        ...lines.map((line) => `${line.label}｜${term(line.dish)}｜應付 ${money(line.pay, displayPlaces)}`),
+      ].join("\n");
     }
 
-    function keetaFormula(mode, amount, sub, total, n) {
-      const gap = total - sub;
-      if (mode === "even") return `${term(amount)} + (${signed(gap)} ÷ ${n})`;
-      if (mode === "ratio") return `${term(amount)} × (${term(total)} / ${term(sub)})`;
-      const fee = parseAmount(state.feeRaw) || 0;
-      const rest = total - sub - fee;
-      return `${term(amount)} + (${term(fee)} ÷ ${n}) + (${signed(rest)} × ${term(amount)}/${term(sub)})`;
+    function keetaFormula(amount, sub, total, coupon, extra, fee, n) {
+      if (state.keetaMode === "even") return `${term(amount)} + (${signed(total - sub)} ÷ ${n})`;
+      if (state.keetaMode === "ratio") return `${term(amount)} × (${term(total)} / ${term(sub)})`;
+      const discount = coupon + extra;
+      return `${term(amount)} + (${term(fee)} ÷ ${n}) − (${term(discount)} × ${term(amount)}/${term(sub)})`;
     }
 
-    function paintDineResults(people, amounts, places) {
+    function paintDineResults(amounts) {
       const discount = String(state.discountRaw).trim() === "" ? 100 : parseAmount(state.discountRaw);
       const deposit = String(state.depositRaw).trim() === "" ? 0 : parseAmount(state.depositRaw);
       if (discount == null || discount < 0 || discount > 100) {
@@ -485,73 +529,42 @@ export function createSplitPage(root) {
         deposit,
         split: state.dineSplit,
       });
-      const allocated = allocateRounded(cooked.shares, places);
+      const places = state.round === "cent" ? 2 : 1;
+      const rounded = state.round === "ceil" ? ceilShares(cooked.shares) : allocateRounded(cooked.shares, places);
+      const displayPlaces = state.round === "ceil" ? 0 : places;
       const orderLabel = state.serviceOrder === "before" ? "折前原價加一" : "折後加一";
-      const factor = dineMultiplier(discount, state.serviceOrder);
-      results.append(
-        el(
-          "p",
-          "split-line",
-          `正價 $${cooked.sub.toFixed(2)} · ${orderLabel} × ${term(factor)} − 訂金 ${money(deposit, 2)} → 實付 ${money(cooked.net, 2)}`
-        )
-      );
-      const lines = people.map((person, i) => {
-        const formula =
-          state.dineSplit === "even"
-            ? `實付 ${term(cooked.net)} ÷ ${amounts.length}`
-            : state.serviceOrder === "before"
-              ? `${term(amounts[i])} × ${term(discount)}% + ${term(amounts[i])} × 10% − 訂金 ÷ ${amounts.length}`
-              : `${term(amounts[i])} × ${term(discount)}% × 1.10 − 訂金 ÷ ${amounts.length}`;
-        return {
-          label: personLabel(person.name, i),
-          dish: amounts[i],
-          pay: allocated.shares[i],
-          formula,
-        };
-      });
-      renderShareLines(lines, allocated.total, places);
-      results.dataset.copy = copyBlock(`堂食 · ${orderLabel}`, cooked.net, lines, places, allocated.total);
-    }
-
-    function renderShareLines(lines, total, places) {
-      results.append(el("p", "split-line", `應付合計 ${money(total, places)}`));
-      for (const line of lines) {
+      results.append(el(
+        "p",
+        "split-line",
+        `正價 $${cooked.sub.toFixed(2)} · ${orderLabel} × ${term(dineMultiplier(discount, state.serviceOrder))} − 訂金 ${money(deposit, 2)}`
+      ));
+      results.append(el("p", "split-line", state.round === "ceil"
+        ? `齊頭向上合計 ${money(rounded.total, 0)}`
+        : `應付合計 ${money(rounded.total, displayPlaces)}`));
+      amounts.forEach((amount, index) => {
+        const pay = rounded.shares[index];
+        const mark = state.round === "tenth" && rounded.adjusted?.[index] ? "（已補尾數）" : "";
         const row = el("p", "split-line");
-        row.textContent = `${line.label}　餐點 ${term(line.dish)}　應付 ${money(line.pay, places)}`;
-        const formula = el("span", "split-formula");
-        formula.textContent = line.formula;
-        row.append(formula);
+        row.textContent = `${personLabel(state.people[index]?.name, index)}　餐點 ${term(amount)}　應付 ${money(pay, displayPlaces)}${mark}`;
         results.append(row);
-      }
+      });
     }
 
-    function copyBlock(title, receiptTotal, lines, places, shownTotal) {
-      const rows = lines.map(
-        (line) => `${line.label}｜${term(line.dish)}｜應付 ${money(line.pay, places)}`
-      );
-      const head = [`夾錢明細`, title, `總計實付 ${money(receiptTotal, 2)}`];
-      if (Math.abs(receiptTotal - shownTotal) > 0.001) {
-        head.push(`齊頭後合計 ${money(shownTotal, places)}`);
-      }
-      return [...head, ...rows].join("\n");
-    }
-
-    paintPeople(rows);
+    paintPeople();
     paintResults();
   }
 
-  function paintFx() {
-    const note = el(
-      "p",
-      "split-note",
-      "現金匯率係預設參考值，可改做找換店價。只會把匯率表存在呢部機，唔會上傳。"
-    );
+  function paintFx(host) {
+    host.replaceChildren();
+    host.append(el("p", "split-note", "現金匯率係預設參考值，可改做找換店價。只會把匯率表存在呢部機，唔會上傳。"));
     const chips = el("div", "split-tabs");
     const rateField = fieldInput("現金匯率（1 外幣 = 幾多港幣）", String(state.rates[state.fxCode]));
     const chipButtons = FX_CODES.map((code) => {
-      const btn = pillButton(`${code} ${FX_LABELS[code]}`, () => {
+      const btn = el("button", "split-pill", `${code} ${FX_LABELS[code]}`);
+      btn.type = "button";
+      btn.addEventListener("click", () => {
         state.fxCode = code;
-        chipButtons.forEach((b, i) => b.setAttribute("aria-pressed", FX_CODES[i] === code ? "true" : "false"));
+        chipButtons.forEach((item, index) => item.setAttribute("aria-pressed", FX_CODES[index] === code ? "true" : "false"));
         rateField.input.value = String(state.rates[code]);
         paintFxResults();
       });
@@ -567,37 +580,38 @@ export function createSplitPage(root) {
       }
       paintFxResults();
     });
-
     const sticker = fieldInput("外幣標價", state.stickerRaw, "15800");
     sticker.input.addEventListener("input", () => {
       state.stickerRaw = sticker.input.value;
       paintFxResults();
     });
-
     const taxRow = el("div", "split-tabs");
     const taxModes = [
-      ["none", "未退稅原價"],
-      ["jp", "日本退稅 −10%"],
-      ["custom", "自訂退稅"],
+      ["none", "不退稅"],
+      ["jp", "日本退稅 税込÷1.1"],
+      ["dept", "日本百貨 ÷1.1 再減 1.55%"],
+      ["off", "直接折扣"],
     ];
-    const taxCustom = fieldInput("自訂退稅 %", state.taxCustom, "8");
+    const taxCustom = fieldInput("直接折扣 %", state.taxCustom, "10");
     const taxButtons = taxModes.map(([id, label]) => {
-      const btn = pillButton(label, () => {
+      const btn = el("button", "split-pill", label);
+      btn.type = "button";
+      btn.addEventListener("click", () => {
         state.taxMode = id;
-        taxButtons.forEach((b, i) => b.setAttribute("aria-pressed", taxModes[i][0] === id ? "true" : "false"));
-        taxCustom.wrap.hidden = id !== "custom";
+        if (id === "off" && String(state.taxCustom).trim() === "") state.taxCustom = "10";
+        taxButtons.forEach((item, index) => item.setAttribute("aria-pressed", taxModes[index][0] === id ? "true" : "false"));
+        taxCustom.wrap.hidden = id !== "off";
         paintFxResults();
       });
       btn.setAttribute("aria-pressed", state.taxMode === id ? "true" : "false");
       return btn;
     });
     taxRow.append(...taxButtons);
-    taxCustom.wrap.hidden = state.taxMode !== "custom";
+    taxCustom.wrap.hidden = state.taxMode !== "off";
     taxCustom.input.addEventListener("input", () => {
       state.taxCustom = taxCustom.input.value;
       paintFxResults();
     });
-
     const cbRow = el("div", "split-tabs");
     const cbModes = [
       ["4", "4%"],
@@ -607,9 +621,11 @@ export function createSplitPage(root) {
     ];
     const cbCustom = fieldInput("自訂回贈 %", state.cashbackCustom, "3");
     const cbButtons = cbModes.map(([id, label]) => {
-      const btn = pillButton(label, () => {
+      const btn = el("button", "split-pill", label);
+      btn.type = "button";
+      btn.addEventListener("click", () => {
         state.cashback = id;
-        cbButtons.forEach((b, i) => b.setAttribute("aria-pressed", cbModes[i][0] === id ? "true" : "false"));
+        cbButtons.forEach((item, index) => item.setAttribute("aria-pressed", cbModes[index][0] === id ? "true" : "false"));
         cbCustom.wrap.hidden = id !== "custom";
         paintFxResults();
       });
@@ -622,9 +638,8 @@ export function createSplitPage(root) {
       state.cashbackCustom = cbCustom.input.value;
       paintFxResults();
     });
-
     const results = el("div", "split-results");
-    body.append(note, chips, rateField.wrap, sticker.wrap, taxRow, taxCustom.wrap, cbRow, cbCustom.wrap, results);
+    host.append(chips, rateField.wrap, sticker.wrap, taxRow, taxCustom.wrap, el("p", "split-note", "簽卡再加 1.95% FCC，然後減回贈。"), cbRow, cbCustom.wrap, results);
 
     function paintFxResults() {
       results.replaceChildren();
@@ -642,42 +657,31 @@ export function createSplitPage(root) {
         results.append(el("p", "split-line", "請輸入正數現金匯率。"));
         return;
       }
-      let refund = 0;
-      if (state.taxMode === "jp") refund = 10;
-      if (state.taxMode === "custom") {
-        const custom = parseAmount(state.taxCustom);
-        if (custom == null || custom < 0 || custom > 100) {
-          results.append(el("p", "split-line", "退稅百分比請填 0 至 100。"));
+      let custom = 10;
+      if (state.taxMode === "off") {
+        const parsed = parseAmount(state.taxCustom);
+        if (parsed == null || parsed < 0 || parsed > 100) {
+          results.append(el("p", "split-line", "折扣百分比請填 0 至 100。"));
           return;
         }
-        refund = custom;
+        custom = parsed;
       }
       let cashback = Number(state.cashback);
       if (state.cashback === "custom") {
-        const custom = parseAmount(state.cashbackCustom);
-        if (custom == null || custom < 0 || custom > 100) {
+        const parsed = parseAmount(state.cashbackCustom);
+        if (parsed == null || parsed < 0 || parsed > 100) {
           results.append(el("p", "split-line", "回贈百分比請填 0 至 100。"));
           return;
         }
-        cashback = custom;
+        cashback = parsed;
       }
-      const quote = fxQuote({
-        sticker: stickerN,
-        refundPct: refund,
-        rate,
-        cashbackPct: cashback,
-      });
+      const after = fxAfterForeign(stickerN, state.taxMode, custom);
+      const quote = fxQuote({ sticker: after, refundPct: 0, rate, cashbackPct: cashback });
       const cardShown = quote.cardNetHkd.toFixed(2);
       const cashShown = quote.cashHkd.toFixed(2);
       const diff = Number(cashShown) - Number(cardShown);
-      results.append(el("p", "split-line", `退稅後外幣 ${term(quote.afterForeign)} ${state.fxCode}`));
-      results.append(
-        el(
-          "p",
-          "split-line",
-          `簽卡淨額 $${cardShown}（外幣 × 匯率 × 1.0195 FCC × ${term(1 - cashback / 100)}）`
-        )
-      );
+      results.append(el("p", "split-line", `退稅後外幣 ${term(after)} ${state.fxCode}`));
+      results.append(el("p", "split-line", `簽卡淨額 $${cardShown}（外幣 × 匯率 × 1.0195 FCC × ${term(1 - cashback / 100)}）`));
       results.append(el("p", "split-line", `回贈 $${quote.rebateHkd.toFixed(2)}`));
       results.append(el("p", "split-line", `現金 $${cashShown}`));
       const cmp = el("p", "split-line");
@@ -704,6 +708,5 @@ export function createSplitPage(root) {
     paintFxResults();
   }
 
-  paintShell();
   return { start() {} };
 }

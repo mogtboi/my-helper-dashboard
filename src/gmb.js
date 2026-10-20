@@ -107,13 +107,18 @@ export function createGmb(root, { mode = "hub", onStatus } = {}) {
     ).join("");
     const variants = state.variants
       .map((variant) => {
-        const dirs = (variant.directions || [])
+        const dirs = variant.directions || [];
+        const ends = dirs
+          .map((dir) => `${dir.orig_tc || ""} → ${dir.dest_tc || ""}`.trim())
+          .filter((text) => text !== "→");
+        const heading = ends.join("／") || variant.description_tc || "";
+        const buttons = dirs
           .map(
             (dir) =>
               `<button type="button" class="transit-chip" data-gmb-dir="${escapeHtml(variant.route_id)}" data-seq="${escapeHtml(dir.route_seq)}">${escapeHtml(dir.orig_tc || "")} → ${escapeHtml(dir.dest_tc || "")}</button>`
           )
           .join("");
-        return `<div class="transit-block"><p>${escapeHtml(variant.route_code || "")} ${escapeHtml(variant.description_tc || "")}</p><div class="transit-chips">${dirs}</div></div>`;
+        return `<div class="transit-block"><p>${escapeHtml(variant.route_code || "")} ${escapeHtml(heading)}</p><div class="transit-chips">${buttons}</div></div>`;
       })
       .join("");
     const stops = state.stops
