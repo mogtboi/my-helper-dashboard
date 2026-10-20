@@ -8,6 +8,7 @@ import { createHoliday } from "./holiday.js";
 import { createRadio } from "./radio.js";
 import { createTraffic } from "./traffic.js";
 import { createTco } from "./tco.js";
+import { createMovies } from "./movies.js";
 import { loadBusSelection } from "./busStore.js";
 import { loadWeatherPlace, districtById } from "./weatherStore.js";
 import { loadMtrSelection } from "./mtrStore.js";
@@ -48,7 +49,7 @@ app.innerHTML = `
   </header>
 
   <div id="view-home" class="app-view">
-    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／買車成本／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
+    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／買車成本／戲院場次／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
 
     <div id="panel-stack" class="panel-stack">
       <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
@@ -88,6 +89,15 @@ app.innerHTML = `
     </section>
   </div>
 
+  <div id="view-movies" class="app-view" hidden>
+    <section class="panel movies-page-panel" data-panel-id="movies" aria-labelledby="movies-title">
+      <div class="panel-head">
+        <h2 id="movies-title">戲院場次</h2>
+      </div>
+      <div id="movies-root"></div>
+    </section>
+  </div>
+
   <div id="drawer-root"></div>
   <div id="settings-overlay" class="settings-overlay" hidden></div>
 
@@ -124,12 +134,14 @@ const setNet = (text) => {
 const viewHome = document.querySelector("#view-home");
 const viewTraffic = document.querySelector("#view-traffic");
 const viewTco = document.querySelector("#view-tco");
+const viewMovies = document.querySelector("#view-movies");
 const stack = document.querySelector("#panel-stack");
 
 const VIEW_SUB = {
   home: "個人儀表板",
   traffic: "特別交通消息",
   tco: "買車成本模擬",
+  movies: "戲院場次",
 };
 
 const bottomTabs = document.querySelector("#bottom-tabs");
@@ -146,6 +158,7 @@ const showView = (name) => {
   viewHome.hidden = name !== "home";
   viewTraffic.hidden = name !== "traffic";
   viewTco.hidden = name !== "tco";
+  viewMovies.hidden = name !== "movies";
   brandSub.textContent = VIEW_SUB[name] || "個人儀表板";
   document.body.dataset.view = name;
   syncBottomTabs(name === "settings" ? "settings" : name);
@@ -220,6 +233,7 @@ const mtr = createMtr(
 
 const traffic = createTraffic(document.querySelector("#traffic-root"), { onStatus: setNet });
 const tco = createTco(document.querySelector("#tco-root"));
+const movies = createMovies(document.querySelector("#movies-root"), { onStatus: setNet });
 
 const settings = createAppSettings({
   overlayRoot: overlay,
@@ -266,6 +280,11 @@ const drawer = createDrawer({
     showView("tco");
     tco.start();
     setNet("買車成本模擬");
+  },
+  onNavigateMovies: () => {
+    showView("movies");
+    movies.start();
+    setNet("戲院場次");
   },
 });
 

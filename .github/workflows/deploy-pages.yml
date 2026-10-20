@@ -28,6 +28,10 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - name: Refresh movie showtimes
+        continue-on-error: true
+        run: node scripts/fetch-movies.mjs
+
       - name: Install & build
         env:
           VITE_BASE_PATH: /my-helper-dashboard/

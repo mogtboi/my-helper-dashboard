@@ -1,10 +1,11 @@
 /* my helper dashboard — static shell cache only. No API caching. */
-const CACHE = "my-helper-shell-v21";
+const CACHE = "my-helper-shell-v22";
 const PRECACHE = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./data/hk-holidays.json",
+  "./data/movies.json",
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -42,6 +43,25 @@ self.addEventListener("fetch", (event) => {
     url.hostname.includes("akamaized.net") ||
     url.hostname.includes("rthk.hk")
   ) {
+    return;
+  }
+
+  // Network-first for today's showtimes; fall back to the last cached copy.
+  const isMoviesJson = url.pathname.endsWith("/data/movies.json");
+  if (isMoviesJson) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then((hit) => hit || new Response("", { status: 504 }))
+        )
+    );
     return;
   }
 

@@ -1,0 +1,117 @@
+{
+  "source": "sample",
+  "sample": true,
+  "updated": "2026-10-20",
+  "note": "示範場次。即時抓取空白或失敗時保留呢份資料，方便本機同 Pages 即刻有得睇。",
+  "cinemas": [
+    { "id": "bw-cinematheque", "name": "百老匯電影中心", "region": "kln", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
+    { "id": "bw-theone", "name": "百老匯 The ONE", "region": "kln", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
+    { "id": "bw-tw", "name": "百老匯荃灣", "region": "nt", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
+    { "id": "bw-kf", "name": "百老匯葵芳", "region": "nt", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
+    { "id": "bw-palace", "name": "PALACE ifc", "region": "hki", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
+    { "id": "mcl-festival", "name": "MCL 又一城", "region": "kln", "chain": "mcl", "officialUrl": "https://www.mclcinema.com/" },
+    { "id": "mcl-elements", "name": "MCL 圓方", "region": "kln", "chain": "mcl", "officialUrl": "https://www.mclcinema.com/" },
+    { "id": "mcl-metro", "name": "MCL 新都城", "region": "nt", "chain": "mcl", "officialUrl": "https://www.mclcinema.com/" },
+    { "id": "mcl-cp", "name": "MCL 太古城中心", "region": "hki", "chain": "mcl", "officialUrl": "https://www.mclcinema.com/" },
+    { "id": "emp-isquare", "name": "英皇戲院 iSQUARE", "region": "kln", "chain": "emperor", "officialUrl": "https://www.emperorcinemas.com/" },
+    { "id": "emp-moko", "name": "英皇戲院 MOKO", "region": "kln", "chain": "emperor", "officialUrl": "https://www.emperorcinemas.com/" },
+    { "id": "emp-tm", "name": "英皇戲院屯門", "region": "nt", "chain": "emperor", "officialUrl": "https://www.emperorcinemas.com/" },
+    { "id": "emp-ts", "name": "英皇戲院時代廣場", "region": "hki", "chain": "emperor", "officialUrl": "https://www.emperorcinemas.com/" },
+    { "id": "gh-sky", "name": "嘉禾戲院 天空", "region": "kln", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
+    { "id": "gh-telford", "name": "嘉禾戲院 德福", "region": "kln", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
+    { "id": "gh-st", "name": "嘉禾戲院 沙田", "region": "nt", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
+    { "id": "gh-tp", "name": "嘉禾戲院 大埔", "region": "nt", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
+    { "id": "gh-hy", "name": "嘉禾戲院 杏花邨", "region": "hki", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
+    { "id": "cc-langham", "name": "Cinema City 朗豪坊", "region": "kln", "chain": "cinemacity", "officialUrl": "https://www.cinemacity.com.hk/" },
+    { "id": "cc-popcorn", "name": "Cinema City PopCorn", "region": "nt", "chain": "cinemacity", "officialUrl": "https://www.cinemacity.com.hk/" },
+    { "id": "cc-jp", "name": "Cinema City JP", "region": "hki", "chain": "cinemacity", "officialUrl": "https://www.cinemacity.com.hk/" },
+    { "id": "amc-pp", "name": "AMC 太古廣場", "region": "hki", "chain": "other", "officialUrl": "https://www.amccinemas.com.hk/" }
+  ],
+  "movies": [
+    {
+      "id": "sample-night",
+      "title": "示範：夜航",
+      "rating": "IIA",
+      "runtime": 118,
+      "showtimes": [
+        { "cinemaId": "bw-theone", "time": "11:20", "house": "2院" },
+        { "cinemaId": "bw-theone", "time": "19:30", "house": "2院" },
+        { "cinemaId": "mcl-festival", "time": "14:10" },
+        { "cinemaId": "mcl-festival", "time": "21:45", "format": "IMAX" },
+        { "cinemaId": "emp-isquare", "time": "13:40", "house": "5院" },
+        { "cinemaId": "gh-sky", "time": "10:30" },
+        { "cinemaId": "gh-sky", "time": "20:15", "house": "3院" },
+        { "cinemaId": "cc-langham", "time": "16:20", "house": "3院" },
+        { "cinemaId": "bw-tw", "time": "12:05" },
+        { "cinemaId": "bw-tw", "time": "18:40", "house": "1院" },
+        { "cinemaId": "mcl-cp", "time": "15:05", "format": "IMAX" },
+        { "cinemaId": "emp-ts", "time": "19:15", "house": "1院" },
+        { "cinemaId": "gh-hy", "time": "17:50", "house": "4院" },
+        { "cinemaId": "amc-pp", "time": "21:00", "house": "2院" }
+      ]
+    },
+    {
+      "id": "sample-hill",
+      "title": "示範：山城來信",
+      "rating": "IIB",
+      "runtime": 126,
+      "showtimes": [
+        { "cinemaId": "bw-cinematheque", "time": "11:00", "house": "1院" },
+        { "cinemaId": "bw-cinematheque", "time": "16:45", "house": "1院" },
+        { "cinemaId": "mcl-elements", "time": "13:15" },
+        { "cinemaId": "mcl-elements", "time": "20:30", "format": "IMAX" },
+        { "cinemaId": "emp-moko", "time": "14:50", "house": "6院" },
+        { "cinemaId": "gh-telford", "time": "10:45" },
+        { "cinemaId": "gh-telford", "time": "19:00", "house": "2院" },
+        { "cinemaId": "mcl-metro", "time": "15:40", "house": "3院" },
+        { "cinemaId": "emp-tm", "time": "12:30" },
+        { "cinemaId": "emp-tm", "time": "21:10", "house": "4院" },
+        { "cinemaId": "gh-st", "time": "18:20", "house": "2院" },
+        { "cinemaId": "cc-popcorn", "time": "11:35" },
+        { "cinemaId": "cc-popcorn", "time": "17:15", "house": "5院" },
+        { "cinemaId": "bw-palace", "time": "20:05", "house": "3院" },
+        { "cinemaId": "cc-jp", "time": "13:55", "house": "2院" }
+      ]
+    },
+    {
+      "id": "sample-last",
+      "title": "示範：末班車",
+      "rating": "III",
+      "runtime": 104,
+      "showtimes": [
+        { "cinemaId": "emp-isquare", "time": "22:15", "house": "7院" },
+        { "cinemaId": "gh-sky", "time": "21:30", "house": "6院" },
+        { "cinemaId": "cc-langham", "time": "19:45", "house": "4院" },
+        { "cinemaId": "bw-kf", "time": "12:40" },
+        { "cinemaId": "bw-kf", "time": "20:50", "house": "2院" },
+        { "cinemaId": "gh-tp", "time": "15:25", "house": "1院" },
+        { "cinemaId": "mcl-metro", "time": "22:00" },
+        { "cinemaId": "emp-ts", "time": "11:10" },
+        { "cinemaId": "emp-ts", "time": "23:05", "house": "8院" },
+        { "cinemaId": "amc-pp", "time": "16:00", "house": "1院" },
+        { "cinemaId": "mcl-cp", "time": "18:35", "house": "2院" }
+      ]
+    },
+    {
+      "id": "sample-clear",
+      "title": "示範：晴空練習",
+      "rating": "IIA",
+      "runtime": 96,
+      "showtimes": [
+        { "cinemaId": "bw-palace", "time": "10:20", "house": "2院" },
+        { "cinemaId": "bw-palace", "time": "14:30", "house": "2院" },
+        { "cinemaId": "mcl-cp", "time": "12:15" },
+        { "cinemaId": "mcl-cp", "time": "17:40", "format": "IMAX" },
+        { "cinemaId": "gh-hy", "time": "11:45" },
+        { "cinemaId": "gh-hy", "time": "19:20", "house": "3院" },
+        { "cinemaId": "cc-jp", "time": "15:50", "house": "1院" },
+        { "cinemaId": "cc-jp", "time": "21:15", "house": "1院" },
+        { "cinemaId": "bw-tw", "time": "13:05", "house": "4院" },
+        { "cinemaId": "gh-st", "time": "10:55" },
+        { "cinemaId": "gh-st", "time": "16:10", "house": "5院" },
+        { "cinemaId": "mcl-festival", "time": "18:00", "house": "2院" },
+        { "cinemaId": "emp-moko", "time": "20:40", "house": "3院" }
+      ]
+    }
+  ]
+}

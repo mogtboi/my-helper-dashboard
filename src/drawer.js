@@ -26,6 +26,7 @@ const ROOT_ITEMS = [
   { id: "home", nameTc: "主頁", blurb: "儀表板各資訊面板" },
   { id: "traffic", nameTc: "交通消息", blurb: "特別交通消息／封路／改道" },
   { id: "tco", nameTc: "買車成本", blurb: "買車 vs 搭車 · EV vs 油車 TCO" },
+  { id: "movies", nameTc: "戲院場次", blurb: "上映電影／各區戲院時間表／官網買飛" },
   { id: "settings", nameTc: "設定", blurb: "加到主頁、天氣／巴士／港鐵等" },
 ];
 
@@ -53,7 +54,7 @@ function toggleRow(mod, on) {
 }
 
 /**
- * Left drawer (~67vw): 主頁 / 交通消息 / 設定 → nested category pages.
+ * Left drawer (~67vw): 主頁 / 交通消息 / 買車成本 / 戲院場次 / 設定.
  */
 export function createDrawer({
   root,
@@ -67,6 +68,7 @@ export function createDrawer({
   onNavigateHome,
   onNavigateTraffic,
   onNavigateTco,
+  onNavigateMovies,
 }) {
   root.innerHTML = `
     <div class="drawer-backdrop" data-drawer-close hidden></div>
@@ -76,7 +78,7 @@ export function createDrawer({
         <h2 id="drawer-title">選單</h2>
         <button type="button" class="icon-btn" data-drawer-close aria-label="關閉">✕</button>
       </header>
-      <p class="drawer-note" id="drawer-note">主頁、交通消息、買車成本，或者入設定。</p>
+      <p class="drawer-note" id="drawer-note">主頁、交通消息、買車成本、戲院場次，或者入設定。</p>
       <div class="drawer-body" id="drawer-body"></div>
     </aside>
   `;
@@ -101,7 +103,7 @@ export function createDrawer({
 
   const renderRoot = () => {
     titleEl.textContent = "選單";
-    noteEl.textContent = "主頁、交通消息、買車成本，或者入設定管理主頁模組。";
+    noteEl.textContent = "主頁、交通消息、買車成本、戲院場次，或者入設定管理主頁模組。";
     backBtn.hidden = true;
     body.innerHTML = `
       <nav class="drawer-cat-list" aria-label="選單">
@@ -287,6 +289,11 @@ export function createDrawer({
       if (id === "tco") {
         setOpen(false);
         onNavigateTco?.();
+        return;
+      }
+      if (id === "movies") {
+        setOpen(false);
+        onNavigateMovies?.();
         return;
       }
       if (id === "settings") {
