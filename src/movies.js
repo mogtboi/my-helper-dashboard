@@ -114,13 +114,6 @@ function dateChipLabel(date, count, today) {
   return tail;
 }
 
-const SEAT_TEXT = {
-  ok: "🟢 充足",
-  low: "🟡 尚餘少量",
-  few: "🟠 僅餘極少",
-  soldout: "🔴 滿座",
-};
-
 function hktNowMinutes(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Hong_Kong",
@@ -140,6 +133,36 @@ function timeToMinutes(hhmm) {
   const min = Number(m[2]);
   if (h > 23 || min > 59) return null;
   return h * 60 + min;
+}
+
+/** 00:00–04:59 belongs to the business night, so it sorts after the evening shows. */
+function businessMinutes(hhmm) {
+  const mins = timeToMinutes(hhmm);
+  if (mins == null) return null;
+  if (mins < 300) return mins + 1440;
+  return mins;
+}
+
+function seatText(show) {
+  const remaining = Number(show?.remaining);
+  const total = Number(show?.totalSeats);
+  if (Number.isFinite(remaining)) {
+    if (remaining === 0) return "🔴 滿座";
+    const share = Number.isFinite(total) && total > 0 ? remaining / total : null;
+    let band = show?.seat;
+    if (share != null) {
+      if (share <= 0.1) band = "few";
+      else if (share <= 0.3) band = "low";
+      else band = "ok";
+    }
+    if (band === "few") return `🟠 僅餘 ${remaining} 位`;
+    if (band === "low") return `🟡 剩 ${remaining} 位`;
+    return `🟢 剩 ${remaining} 位`;
+  }
+  if (show?.seat === "soldout") return "🔴 滿座";
+  if (show?.seat === "low" || show?.seat === "few") return "🟡 尚餘少量";
+  if (show?.seat === "ok") return "🟢 充足";
+  return "";
 }
 
 function listOf(movie) {
@@ -183,7 +206,8 @@ function pillLabel(show, today) {
   if (show.format) bits.push(String(show.format));
   const price = Number(show.price);
   if (Number.isFinite(price) && price > 0) bits.push(`$${Math.round(price)}`);
-  if (SEAT_TEXT[show.seat]) bits.push(SEAT_TEXT[show.seat]);
+  const seats = seatText(show);
+  if (seats) bits.push(seats);
   return bits.filter(Boolean).join(" · ");
 }
 
@@ -196,7 +220,7 @@ function buyLink(url, directory = false) {
 
 function timePill(show, url, today) {
   const label = escapeHtml(pillLabel(show, today));
-  const sold = show?.seat === "soldout" ? " is-soldout" : "";
+  const sold = Number(show?.remaining) === 0 || show?.seat === "soldout" ? " is-soldout" : "";
   if (!url) return `<span class="movies-time is-plain${sold}">${label}</span>`;
   return `<a class="movies-time${sold}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
 }
@@ -282,8 +306,23 @@ export function createMovies(root, { onStatus } = {}) {
   let started = false;
   let listObserver = null;
 
-  const cinemas = () => (Array.isArray(payload?.cinemas) ? payload.cinemas : []);
-  const movies = () => (Array.isArray(payload?.movies) ? payload.movies : []);
+  const isHkCinema = (cinema) => {
+    const name = String(cinema?.name || "");
+    if (name.includes("澳門") || name.includes("葡京")) return false;
+    return cinema?.region === "kln" || cinema?.region === "nt" || cinema?.region === "hki";
+  };
+
+  const cinemas = () => (Array.isArray(payload?.cinemas) ? payload.cinemas.filter(isHkCinema) : []);
+  const movies = () => {
+    const rows = Array.isArray(payload?.movies) ? payload.movies : [];
+    const allowed = new Set(cinemas().map((cinema) => cinema.id));
+    for (const movie of rows) {
+      if (movie._hkShows) continue;
+      movie.showtimes = (movie.showtimes || []).filter((show) => allowed.has(show.cinemaId));
+      movie._hkShows = true;
+    }
+    return rows;
+  };
 
   const cinemaPasses = (cinema) => {
     if (!cinema) return false;
@@ -298,7 +337,7 @@ export function createMovies(root, { onStatus } = {}) {
     if (date < today) return false;
     if (todayOnly && date !== today) return false;
     if (!state.hidePast || date !== today) return true;
-    const mins = timeToMinutes(show.time);
+    const mins = businessMinutes(show.time);
     if (mins == null) return false;
     return mins >= hktNowMinutes();
   };
@@ -310,7 +349,7 @@ export function createMovies(root, { onStatus } = {}) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(showDate) || showDate < today) return false;
     if (date && showDate !== date) return false;
     if (!state.hidePast || showDate !== today || (date && date !== today)) return true;
-    const mins = timeToMinutes(show.time);
+    const mins = businessMinutes(show.time);
     if (mins == null) return false;
     return mins >= hktNowMinutes();
   };
@@ -359,6 +398,9 @@ export function createMovies(root, { onStatus } = {}) {
   const metaHtml = (movie) => {
     if (scoresAreFallback()) {
       const stats = todayStats(movie);
+      if (stats.shows === 0 && presaleCount(movie) > 0) {
+        return escapeHtml(`📅 預售 · 共 ${presaleCount(movie)} 場`);
+      }
       const today = hktToday();
       const day = activeScheduleDate();
       const when = day === today ? "今日" : `${Number(day.slice(5, 7))}/${Number(day.slice(8))}`;
@@ -387,6 +429,15 @@ export function createMovies(root, { onStatus } = {}) {
     }
     const rating = scoreOf(movie);
     return { cinemas: ids.size, shows, rating: rating == null ? -1 : rating };
+  };
+
+  const presaleCount = (movie) => {
+    const day = activeScheduleDate();
+    let total = 0;
+    for (const show of movie.showtimes || []) {
+      if (String(show.date || "") > day) total += 1;
+    }
+    return total;
   };
 
   const markHot = () => {
@@ -693,7 +744,7 @@ export function createMovies(root, { onStatus } = {}) {
     const live = [];
     const rest = [];
     for (const movie of rows) {
-      if (todayStats(movie).shows === 0) rest.push(movie);
+      if (todayStats(movie).shows === 0 && presaleCount(movie) === 0) rest.push(movie);
       else live.push(movie);
     }
     return { live, rest };

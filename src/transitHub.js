@@ -1,5 +1,5 @@
 import { escapeHtml } from "./escapeHtml.js";
-import { saveModuleEnabled } from "./prefsStore.js";
+import { isModuleOn, saveModuleEnabled } from "./prefsStore.js";
 import { createBus } from "./bus.js";
 import { createMtr } from "./mtr.js";
 import { createGmb } from "./gmb.js";
@@ -39,7 +39,7 @@ export function createTransitHub(root, options = {}) {
     const box = root.querySelector("#transit-modes");
     if (!box) return;
     box.innerHTML = MODES.map((mode) => {
-      const shown = enabled[mode.id] !== false;
+      const shown = isModuleOn(enabled, mode.id);
       const on = active === mode.id;
       return `<div class="transit-mode${on ? " is-active" : ""}">
         <button type="button" class="transit-mode-name" data-pick-mode="${escapeHtml(mode.id)}" aria-pressed="${on ? "true" : "false"}">${escapeHtml(mode.label)}</button>
@@ -107,7 +107,7 @@ export function createTransitHub(root, options = {}) {
       e.stopPropagation();
       const id = toggle.dataset.homeToggle;
       const enabled = { ...(getEnabled?.() || {}) };
-      const currentlyOn = Boolean(enabled[id]);
+      const currentlyOn = isModuleOn(enabled, id);
       enabled[id] = !currentlyOn;
       const next = saveModuleEnabled(enabled);
       setEnabled?.(next);

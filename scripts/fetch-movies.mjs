@@ -125,6 +125,13 @@ function regionOf(cityName) {
   return "";
 }
 
+/** Hong Kong Emperor houses only. Macau and unknown regions are dropped. */
+function keepCinema(name, region) {
+  const text = String(name || "");
+  if (text.includes("澳門") || text.includes("葡京")) return false;
+  return region === "kln" || region === "nt" || region === "hki";
+}
+
 function ratingOf(film) {
   const list = Array.isArray(film?.filmLevelList) ? film.filmLevelList : [];
   const hk = list.find((row) => String(row?.localeCode || "").toLowerCase() === "hk");
@@ -309,7 +316,7 @@ async function fetchChain(chain, today) {
       const region = regionOf(info.cityName);
       const cinemaLinkId = String(info.cinemaLinkId || "");
       const name = String(info.cinemaName || "").trim();
-      if (!cinemaLinkId || !name) continue;
+      if (!cinemaLinkId || !name || !keepCinema(name, region)) continue;
       const cinemaId = `${chain.id}-${cinemaLinkId}`;
       if (!cinemas.has(cinemaId)) {
         cinemas.set(cinemaId, {
@@ -331,6 +338,12 @@ async function fetchChain(chain, today) {
         if (format) item.format = format;
         const price = priceOf(show);
         if (price > 0) item.price = price;
+        const totalSeats = Number(show?.hallSeatCount);
+        const sold = Number(show?.saleCount);
+        if (Number.isFinite(totalSeats) && Number.isFinite(sold)) {
+          item.remaining = Math.max(0, totalSeats - sold);
+          item.totalSeats = totalSeats;
+        }
         const seat = seatOf(show);
         if (seat) item.seat = seat;
         const bookingUrl = bookingUrlOf(show);

@@ -51,6 +51,13 @@ function isValidEnabled(obj) {
   return obj && typeof obj === "object";
 }
 
+/** Missing keys use DEFAULT_ENABLED. bus and mtr stay on until explicitly turned off. */
+export function isModuleOn(enabled, id) {
+  const value = enabled?.[id];
+  if (value == null) return DEFAULT_ENABLED[id] !== false;
+  return value !== false;
+}
+
 export function loadModuleEnabled() {
   try {
     const raw = localStorage.getItem(MODULE_PREFS_KEY);
