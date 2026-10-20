@@ -1,5 +1,5 @@
 /* my helper dashboard — static shell cache only. No API caching. */
-const CACHE = "my-helper-shell-v22";
+const CACHE = "my-helper-shell-v23";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -46,9 +46,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Network-first for today's showtimes; fall back to the last cached copy.
-  const isMoviesJson = url.pathname.endsWith("/data/movies.json");
-  if (isMoviesJson) {
+  // Network-first for showtimes and the holiday calendar; fall back to cache.
+  const isFreshJson = /\/data\/(movies|hk-holidays)\.json$/.test(url.pathname);
+  if (isFreshJson) {
     event.respondWith(
       fetch(request)
         .then((response) => {

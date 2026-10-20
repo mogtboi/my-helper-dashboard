@@ -1,116 +1,1377 @@
 {
-  "source": "sample",
-  "sample": true,
+  "source": "live",
+  "sample": false,
   "updated": "2026-10-20",
-  "note": "示範場次。即時抓取空白或失敗時保留呢份資料，方便本機同 Pages 即刻有得睇。",
+  "note": "",
   "cinemas": [
-    { "id": "bw-cinematheque", "name": "百老匯電影中心", "region": "kln", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
-    { "id": "bw-theone", "name": "百老匯 The ONE", "region": "kln", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
-    { "id": "bw-tw", "name": "百老匯荃灣", "region": "nt", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
-    { "id": "bw-kf", "name": "百老匯葵芳", "region": "nt", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
-    { "id": "bw-palace", "name": "PALACE ifc", "region": "hki", "chain": "broadway", "officialUrl": "https://www.cinema.com.hk/" },
-    { "id": "mcl-festival", "name": "MCL 又一城", "region": "kln", "chain": "mcl", "officialUrl": "https://www.mclcinema.com/" },
-    { "id": "mcl-elements", "name": "MCL 圓方", "region": "kln", "chain": "mcl", "officialUrl": "https://www.mclcinema.com/" },
-    { "id": "mcl-metro", "name": "MCL 新都城", "region": "nt", "chain": "mcl", "officialUrl": "https://www.mclcinema.com/" },
-    { "id": "mcl-cp", "name": "MCL 太古城中心", "region": "hki", "chain": "mcl", "officialUrl": "https://www.mclcinema.com/" },
-    { "id": "emp-isquare", "name": "英皇戲院 iSQUARE", "region": "kln", "chain": "emperor", "officialUrl": "https://www.emperorcinemas.com/" },
-    { "id": "emp-moko", "name": "英皇戲院 MOKO", "region": "kln", "chain": "emperor", "officialUrl": "https://www.emperorcinemas.com/" },
-    { "id": "emp-tm", "name": "英皇戲院屯門", "region": "nt", "chain": "emperor", "officialUrl": "https://www.emperorcinemas.com/" },
-    { "id": "emp-ts", "name": "英皇戲院時代廣場", "region": "hki", "chain": "emperor", "officialUrl": "https://www.emperorcinemas.com/" },
-    { "id": "gh-sky", "name": "嘉禾戲院 天空", "region": "kln", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
-    { "id": "gh-telford", "name": "嘉禾戲院 德福", "region": "kln", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
-    { "id": "gh-st", "name": "嘉禾戲院 沙田", "region": "nt", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
-    { "id": "gh-tp", "name": "嘉禾戲院 大埔", "region": "nt", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
-    { "id": "gh-hy", "name": "嘉禾戲院 杏花邨", "region": "hki", "chain": "goldenharvest", "officialUrl": "https://www.goldenharvest.com/" },
-    { "id": "cc-langham", "name": "Cinema City 朗豪坊", "region": "kln", "chain": "cinemacity", "officialUrl": "https://www.cinemacity.com.hk/" },
-    { "id": "cc-popcorn", "name": "Cinema City PopCorn", "region": "nt", "chain": "cinemacity", "officialUrl": "https://www.cinemacity.com.hk/" },
-    { "id": "cc-jp", "name": "Cinema City JP", "region": "hki", "chain": "cinemacity", "officialUrl": "https://www.cinemacity.com.hk/" },
-    { "id": "amc-pp", "name": "AMC 太古廣場", "region": "hki", "chain": "other", "officialUrl": "https://www.amccinemas.com.hk/" }
+    {
+      "id": "emperor-57006",
+      "name": "大圍圍方",
+      "region": "nt",
+      "chain": "emperor",
+      "officialUrl": "https://www.emperorcinemas.com/"
+    },
+    {
+      "id": "emperor-57007",
+      "name": "荃灣荃新天地",
+      "region": "nt",
+      "chain": "emperor",
+      "officialUrl": "https://www.emperorcinemas.com/"
+    },
+    {
+      "id": "emperor-57008",
+      "name": "將軍澳康城",
+      "region": "nt",
+      "chain": "emperor",
+      "officialUrl": "https://www.emperorcinemas.com/"
+    },
+    {
+      "id": "emperor-57002",
+      "name": "銅鑼灣時代廣場",
+      "region": "hki",
+      "chain": "emperor",
+      "officialUrl": "https://www.emperorcinemas.com/"
+    },
+    {
+      "id": "emperor-57003",
+      "name": "中環娛樂行",
+      "region": "hki",
+      "chain": "emperor",
+      "officialUrl": "https://www.emperorcinemas.com/"
+    },
+    {
+      "id": "emperor-57004",
+      "name": "黃竹坑 THE SOUTHSIDE",
+      "region": "hki",
+      "chain": "emperor",
+      "officialUrl": "https://www.emperorcinemas.com/"
+    },
+    {
+      "id": "emperor-57005",
+      "name": "尖沙咀iSQUARE",
+      "region": "kln",
+      "chain": "emperor",
+      "officialUrl": "https://www.emperorcinemas.com/"
+    },
+    {
+      "id": "emperor-57010",
+      "name": "屯門新都商場",
+      "region": "nt",
+      "chain": "emperor",
+      "officialUrl": "https://www.emperorcinemas.com/"
+    },
+    {
+      "id": "cinemacity-55002",
+      "name": "荃灣, 愉景新城 Tsuen Wan, Candy Park",
+      "region": "nt",
+      "chain": "cinemacity",
+      "officialUrl": "https://www.cinemacity.com.hk/"
+    },
+    {
+      "id": "cinemacity-55001",
+      "name": "柴灣,永利中心 Chai Wan, Winner Centre",
+      "region": "hki",
+      "chain": "cinemacity",
+      "officialUrl": "https://www.cinemacity.com.hk/"
+    }
   ],
   "movies": [
     {
-      "id": "sample-night",
-      "title": "示範：夜航",
+      "id": "emperor-a3684a23e0c9",
+      "title": "街霸",
+      "rating": "IIB",
+      "runtime": 119,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "14:55",
+          "house": "House 1",
+          "format": "ATMOS"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "17:15",
+          "house": "House 1",
+          "format": "ATMOS"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "19:35",
+          "house": "House 1",
+          "format": "ATMOS"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "21:55",
+          "house": "House 1",
+          "format": "ATMOS"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "15:05",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "17:20",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "19:35",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "21:55",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "14:45",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "17:10",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "19:50",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "21:45",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "15:20",
+          "house": "House 3",
+          "format": "ATMOS"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "16:40",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "19:40",
+          "house": "House 3",
+          "format": "ATMOS"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "21:40",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "15:00",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "19:20",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "22:10",
+          "house": "the CORONET"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "14:30",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "19:40",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "21:40",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "15:15",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "19:20",
+          "house": "House 5/IMAX*",
+          "format": "IMAX"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "21:50",
+          "house": "House 5/IMAX*",
+          "format": "IMAX"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "17:35",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "19:20",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "21:35",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "14:30",
+          "house": "5院"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "18:55",
+          "house": "5院"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "21:05",
+          "house": "3院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "15:20",
+          "house": "4院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "19:15",
+          "house": "3院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "21:30",
+          "house": "3院"
+        }
+      ]
+    },
+    {
+      "id": "emperor-4c141209b9eb",
+      "title": "(IMAX) 復仇者聯盟4：終局之戰 加碼重映",
+      "rating": "IIA",
+      "runtime": 186,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57005",
+          "time": "15:35",
+          "house": "House 5/IMAX*",
+          "format": "IMAX"
+        }
+      ]
+    },
+    {
+      "id": "emperor-c6b30a52dbfa",
+      "title": "生化危機",
+      "rating": "IIB",
+      "runtime": 94,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "14:05",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "18:00",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "20:20",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "13:50",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "20:25",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "14:20",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "21:50",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "22:00",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "16:05",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "20:25",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "22:00",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "22:00",
+          "house": "the CORONET"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "15:15",
+          "house": "House 2"
+        }
+      ]
+    },
+    {
+      "id": "emperor-6228584009b6",
+      "title": "奧德賽",
+      "rating": "IIB",
+      "runtime": 173,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57005",
+          "time": "18:35",
+          "house": "the CORONET"
+        }
+      ]
+    },
+    {
+      "id": "emperor-8d99cb0717e6",
+      "title": "我阿爹想旅行",
+      "rating": "IIA",
+      "runtime": 108,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "13:55",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "16:00",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "18:05",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "20:10",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "22:15",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "13:55",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "16:00",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "18:05",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "20:10",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "22:15",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "15:40",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "17:45",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "19:35",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "22:05",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "15:15",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "17:25",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "19:35",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "21:45",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "14:00",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "17:25",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "20:00",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "21:50",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "15:50",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "17:40",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "19:50",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "21:50",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "14:10",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "16:15",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "20:05",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "21:35",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "15:45",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "17:55",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "20:05",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "22:15",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "17:20",
+          "house": "4院"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "19:10",
+          "house": "1院"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "21:00",
+          "house": "4院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "17:35",
+          "house": "4院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "19:35",
+          "house": "5院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "21:40",
+          "house": "4院"
+        }
+      ]
+    },
+    {
+      "id": "emperor-aabafce32acb",
+      "title": "劇場版 魔法少女小圓〈瓦爾普吉斯的迴天〉",
+      "rating": "IIA",
+      "runtime": 119,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "16:20",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "17:20",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "15:20",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "17:40",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "17:25",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "17:05",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "14:55",
+          "house": "3院"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "21:10",
+          "house": "5院"
+        }
+      ]
+    },
+    {
+      "id": "emperor-ade9f30ebc0d",
+      "title": "見習冇限耆",
+      "rating": "I",
+      "runtime": 133,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "14:50",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "19:25",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "14:50",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "19:40",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "14:50",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "19:25",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "15:10",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "19:05",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "14:55",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "21:55",
+          "house": "House 3"
+        }
+      ]
+    },
+    {
+      "id": "emperor-b77b8d4ccd2b",
+      "title": "鯨獄逃生",
+      "rating": "IIA",
+      "runtime": 106,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "15:55",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "19:55",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "15:40",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "19:50",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "17:20",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "19:55",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "15:00",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "19:55",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "17:55",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "21:40",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "19:45",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "21:55",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "16:20",
+          "house": "the CORONET"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "22:10",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "16:05",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "19:50",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "19:05",
+          "house": "3院"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "21:15",
+          "house": "1院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "15:45",
+          "house": "5院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "17:15",
+          "house": "3院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "19:40",
+          "house": "4院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "21:40",
+          "house": "5院"
+        }
+      ]
+    },
+    {
+      "id": "emperor-d118cd676027",
+      "title": "實境誘捕",
+      "rating": "IIB",
+      "runtime": 110,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "17:20",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "19:50",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "17:45",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "16:10",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "19:40",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "17:35",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "22:05",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "14:55",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "19:40",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "13:50",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "19:35",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "19:30",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "19:55",
+          "house": "House 1"
+        }
+      ]
+    },
+    {
+      "id": "emperor-53bc860ddc81",
+      "title": "超級無敵羊咩咩大電影之怪獸農場",
+      "rating": "I",
+      "runtime": 81,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "14:35",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "16:15",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57006",
+          "time": "18:40",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "15:20",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "18:45",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "14:35",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "18:15",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "20:15",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "15:10",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "16:55",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "18:40",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "14:20",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "16:00",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "18:00",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "15:55",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "18:10",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "15:30",
+          "house": "2院"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "17:35",
+          "house": "1院"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "19:25",
+          "house": "4院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "17:25",
+          "house": "1院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "19:30",
+          "house": "2院"
+        }
+      ]
+    },
+    {
+      "id": "emperor-9939cf19faf2",
+      "title": "跳越時空的愛戀 (特別版)",
+      "rating": "",
+      "runtime": 148,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57002",
+          "time": "19:00",
+          "house": "House 2"
+        }
+      ]
+    },
+    {
+      "id": "emperor-48fa12f1c9a9",
+      "title": "(「拜託!一定要成功啊」特典場) (日語版) 劇場版 CHIIKAWA 人魚島的秘密",
+      "rating": "I",
+      "runtime": 99,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57007",
+          "time": "22:10",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "21:55",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57002",
+          "time": "17:05",
+          "house": "House 2"
+        }
+      ]
+    },
+    {
+      "id": "emperor-666573387411",
+      "title": "社交清算",
+      "rating": "IIB",
+      "runtime": 112,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57002",
+          "time": "21:55",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "17:45",
+          "house": "the CORONET"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "22:05",
+          "house": "House 1"
+        }
+      ]
+    },
+    {
+      "id": "emperor-ffed38808ee7",
+      "title": "拾荒法師",
+      "rating": "IIB",
+      "runtime": 97,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "22:10",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "18:20",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "22:00",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "22:00",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "21:30",
+          "house": "2院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "17:45",
+          "house": "5院"
+        }
+      ]
+    },
+    {
+      "id": "emperor-d44f41f2cb80",
+      "title": "衣櫃裡的媽咪",
+      "rating": "III",
+      "runtime": 93,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "22:05",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "22:15",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "22:05",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "15:55",
+          "house": "the CORONET"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "22:15",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "21:05",
+          "house": "2院"
+        }
+      ]
+    },
+    {
+      "id": "emperor-e1632e993ff8",
+      "title": "偵戰",
+      "rating": "IIB",
+      "runtime": 88,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57007",
+          "time": "17:00",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "17:55",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "18:20",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "19:45",
+          "house": "2院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "19:00",
+          "house": "1院"
+        }
+      ]
+    },
+    {
+      "id": "emperor-f24182285953",
+      "title": "不存在的罪人",
+      "rating": "III",
+      "runtime": 117,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57003",
+          "time": "17:05",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57003",
+          "time": "19:55",
+          "house": "the CORONET"
+        }
+      ]
+    },
+    {
+      "id": "emperor-bcfe50a1c306",
+      "title": "空槍",
+      "rating": "III",
+      "runtime": 160,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57004",
+          "time": "16:45",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "14:40",
+          "house": "1院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "14:20",
+          "house": "3院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "20:45",
+          "house": "1院"
+        }
+      ]
+    },
+    {
+      "id": "emperor-1eab2b9e49ac",
+      "title": "狂野雄心",
+      "rating": "IIA",
+      "runtime": 101,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "14:15",
+          "house": "House 6"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "17:40",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57004",
+          "time": "15:55",
+          "house": "House 4"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "14:15",
+          "house": "the CORONET"
+        }
+      ]
+    },
+    {
+      "id": "emperor-ba57ae103e53",
+      "title": "(日語版) 劇場版 CHIIKAWA 人魚島的秘密",
+      "rating": "I",
+      "runtime": 99,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "17:55",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57008",
+          "time": "16:20",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "17:35",
+          "house": "House 1"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "14:10",
+          "house": "House 3"
+        }
+      ]
+    },
+    {
+      "id": "emperor-20a3b83c9d77",
+      "title": "Look Back 驀然回首",
+      "rating": "I",
+      "runtime": 100,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "21:55",
+          "house": "House 2"
+        }
+      ]
+    },
+    {
+      "id": "emperor-20fa7a1ec0e2",
+      "title": "新世紀福音戰士新劇場版：破",
+      "rating": "IIB",
+      "runtime": 112,
+      "showtimes": [
+        {
+          "cinemaId": "emperor-57006",
+          "time": "21:55",
+          "house": "House 5"
+        },
+        {
+          "cinemaId": "emperor-57007",
+          "time": "21:55",
+          "house": "House 2"
+        },
+        {
+          "cinemaId": "emperor-57005",
+          "time": "19:40",
+          "house": "House 3"
+        },
+        {
+          "cinemaId": "emperor-57010",
+          "time": "21:55",
+          "house": "House 3"
+        }
+      ]
+    },
+    {
+      "id": "cinemacity-df0e18f90215",
+      "title": "歡迎來龍餐館",
+      "rating": "IIB",
+      "runtime": 140,
+      "showtimes": [
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "15:00",
+          "house": "2院"
+        }
+      ]
+    },
+    {
+      "id": "cinemacity-fa13d337ee55",
+      "title": "八仙！(粵語版)",
+      "rating": "IIA",
+      "runtime": 144,
+      "showtimes": [
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "17:05",
+          "house": "2院"
+        }
+      ]
+    },
+    {
+      "id": "cinemacity-07e05d0ac839",
+      "title": "我未許願先吹蠟燭",
+      "rating": "IIB",
+      "runtime": 115,
+      "showtimes": [
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "16:45",
+          "house": "5院"
+        }
+      ]
+    },
+    {
+      "id": "cinemacity-be4f034f09bb",
+      "title": "浪花男女",
+      "rating": "IIB",
+      "runtime": 109,
+      "showtimes": [
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "15:15",
+          "house": "4院"
+        }
+      ]
+    },
+    {
+      "id": "cinemacity-25183cbc9d6a",
+      "title": "給阿嬤的情書",
       "rating": "IIA",
       "runtime": 118,
       "showtimes": [
-        { "cinemaId": "bw-theone", "time": "11:20", "house": "2院" },
-        { "cinemaId": "bw-theone", "time": "19:30", "house": "2院" },
-        { "cinemaId": "mcl-festival", "time": "14:10" },
-        { "cinemaId": "mcl-festival", "time": "21:45", "format": "IMAX" },
-        { "cinemaId": "emp-isquare", "time": "13:40", "house": "5院" },
-        { "cinemaId": "gh-sky", "time": "10:30" },
-        { "cinemaId": "gh-sky", "time": "20:15", "house": "3院" },
-        { "cinemaId": "cc-langham", "time": "16:20", "house": "3院" },
-        { "cinemaId": "bw-tw", "time": "12:05" },
-        { "cinemaId": "bw-tw", "time": "18:40", "house": "1院" },
-        { "cinemaId": "mcl-cp", "time": "15:05", "format": "IMAX" },
-        { "cinemaId": "emp-ts", "time": "19:15", "house": "1院" },
-        { "cinemaId": "gh-hy", "time": "17:50", "house": "4院" },
-        { "cinemaId": "amc-pp", "time": "21:00", "house": "2院" }
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "15:10",
+          "house": "1院"
+        }
       ]
     },
     {
-      "id": "sample-hill",
-      "title": "示範：山城來信",
-      "rating": "IIB",
-      "runtime": 126,
+      "id": "cinemacity-27d5e27d5f2d",
+      "title": "(粵語版) 劇場版 CHIIKAWA 人魚島的秘密",
+      "rating": "I",
+      "runtime": 99,
       "showtimes": [
-        { "cinemaId": "bw-cinematheque", "time": "11:00", "house": "1院" },
-        { "cinemaId": "bw-cinematheque", "time": "16:45", "house": "1院" },
-        { "cinemaId": "mcl-elements", "time": "13:15" },
-        { "cinemaId": "mcl-elements", "time": "20:30", "format": "IMAX" },
-        { "cinemaId": "emp-moko", "time": "14:50", "house": "6院" },
-        { "cinemaId": "gh-telford", "time": "10:45" },
-        { "cinemaId": "gh-telford", "time": "19:00", "house": "2院" },
-        { "cinemaId": "mcl-metro", "time": "15:40", "house": "3院" },
-        { "cinemaId": "emp-tm", "time": "12:30" },
-        { "cinemaId": "emp-tm", "time": "21:10", "house": "4院" },
-        { "cinemaId": "gh-st", "time": "18:20", "house": "2院" },
-        { "cinemaId": "cc-popcorn", "time": "11:35" },
-        { "cinemaId": "cc-popcorn", "time": "17:15", "house": "5院" },
-        { "cinemaId": "bw-palace", "time": "20:05", "house": "3院" },
-        { "cinemaId": "cc-jp", "time": "13:55", "house": "2院" }
-      ]
-    },
-    {
-      "id": "sample-last",
-      "title": "示範：末班車",
-      "rating": "III",
-      "runtime": 104,
-      "showtimes": [
-        { "cinemaId": "emp-isquare", "time": "22:15", "house": "7院" },
-        { "cinemaId": "gh-sky", "time": "21:30", "house": "6院" },
-        { "cinemaId": "cc-langham", "time": "19:45", "house": "4院" },
-        { "cinemaId": "bw-kf", "time": "12:40" },
-        { "cinemaId": "bw-kf", "time": "20:50", "house": "2院" },
-        { "cinemaId": "gh-tp", "time": "15:25", "house": "1院" },
-        { "cinemaId": "mcl-metro", "time": "22:00" },
-        { "cinemaId": "emp-ts", "time": "11:10" },
-        { "cinemaId": "emp-ts", "time": "23:05", "house": "8院" },
-        { "cinemaId": "amc-pp", "time": "16:00", "house": "1院" },
-        { "cinemaId": "mcl-cp", "time": "18:35", "house": "2院" }
-      ]
-    },
-    {
-      "id": "sample-clear",
-      "title": "示範：晴空練習",
-      "rating": "IIA",
-      "runtime": 96,
-      "showtimes": [
-        { "cinemaId": "bw-palace", "time": "10:20", "house": "2院" },
-        { "cinemaId": "bw-palace", "time": "14:30", "house": "2院" },
-        { "cinemaId": "mcl-cp", "time": "12:15" },
-        { "cinemaId": "mcl-cp", "time": "17:40", "format": "IMAX" },
-        { "cinemaId": "gh-hy", "time": "11:45" },
-        { "cinemaId": "gh-hy", "time": "19:20", "house": "3院" },
-        { "cinemaId": "cc-jp", "time": "15:50", "house": "1院" },
-        { "cinemaId": "cc-jp", "time": "21:15", "house": "1院" },
-        { "cinemaId": "bw-tw", "time": "13:05", "house": "4院" },
-        { "cinemaId": "gh-st", "time": "10:55" },
-        { "cinemaId": "gh-st", "time": "16:10", "house": "5院" },
-        { "cinemaId": "mcl-festival", "time": "18:00", "house": "2院" },
-        { "cinemaId": "emp-moko", "time": "20:40", "house": "3院" }
+        {
+          "cinemaId": "cinemacity-55002",
+          "time": "17:10",
+          "house": "3院"
+        },
+        {
+          "cinemaId": "cinemacity-55001",
+          "time": "17:35",
+          "house": "2院"
+        }
       ]
     }
   ]

@@ -53,12 +53,12 @@ function isListedOfficialHost(url) {
   return OFFICIAL_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
 }
 
-/** https only. Known chains always use the chain site, never a third-party ticker. */
+/** https chain hosts only. Unknown chains may use officialUrl when that host is listed. */
 function safeBuyUrl(cinema) {
   const chainUrl = CHAIN_URL[cinema?.chain];
   if (chainUrl && isListedOfficialHost(chainUrl)) return chainUrl;
   const own = String(cinema?.officialUrl || "").trim();
-  if (!own) return "";
+  if (!own || !isListedOfficialHost(own)) return "";
   try {
     const u = new URL(own);
     if (u.protocol !== "https:" || u.username || u.password) return "";
@@ -99,7 +99,7 @@ function pillLabel(show) {
 function buyLink(url) {
   if (!url) return "";
   const href = escapeHtml(url);
-  return `<a class="movies-buy" href="${href}" target="_blank" rel="noopener noreferrer">🎟️ 戲院官網 / 即時買飛 ↗</a>`;
+  return `<a class="movies-buy" href="${href}" target="_blank" rel="noopener noreferrer">🎟️ 官網買飛 ↗</a>`;
 }
 
 function timePill(show, url) {
@@ -119,6 +119,13 @@ function cmpCinema(a, b, sort) {
   return d || byName();
 }
 
+function badge(cinema) {
+  const region = REGION_LABEL[cinema.region] || cinema.region || "";
+  const chain = CHAIN_LABEL[cinema.chain] || "";
+  const text = [region, chain].filter(Boolean).join(" · ");
+  return text ? `<span class="movies-chain-badge">${escapeHtml(text)}</span>` : "";
+}
+
 export function createMovies(root, { onStatus } = {}) {
   const state = {
     mode: "movie",
@@ -127,6 +134,8 @@ export function createMovies(root, { onStatus } = {}) {
     sort: "region",
     hidePast: true,
     query: "",
+    movieId: "",
+    cinemaId: "",
   };
   let payload = null;
   let loadError = "";
@@ -153,19 +162,47 @@ export function createMovies(root, { onStatus } = {}) {
     });
   };
 
-  const queryHit = (movie, cinema) => {
-    const q = state.query.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      String(movie?.title || "").toLowerCase().includes(q) ||
-      String(cinema?.name || "").toLowerCase().includes(q)
-    );
-  };
+  const query = () => state.query.trim().toLowerCase();
 
-  const pairsForMovie = (movie) =>
+  const cinemasFor = (movie) =>
     cinemas()
-      .filter((cinema) => cinemaPasses(cinema) && queryHit(movie, cinema) && showsFor(movie, cinema.id).length)
+      .filter((cinema) => {
+        if (!cinemaPasses(cinema) || !showsFor(movie, cinema.id).length) return false;
+        const q = query();
+        if (!q) return true;
+        return (
+          String(movie.title || "").toLowerCase().includes(q) ||
+          String(cinema.name || "").toLowerCase().includes(q)
+        );
+      })
       .sort((a, b) => cmpCinema(a, b, state.sort));
+
+  const filmsWithShows = () =>
+    movies()
+      .map((movie) => ({ movie, rows: cinemasFor(movie) }))
+      .filter((row) => row.rows.length)
+      .sort((a, b) => String(a.movie.title).localeCompare(String(b.movie.title), "zh-Hant"));
+
+  const cinemaRows = () => {
+    const q = query();
+    return cinemas()
+      .filter((cinema) => cinemaPasses(cinema))
+      .map((cinema) => {
+        const titles = movies()
+          .filter((movie) => {
+            if (!showsFor(movie, cinema.id).length) return false;
+            if (!q) return true;
+            return (
+              String(movie.title || "").toLowerCase().includes(q) ||
+              String(cinema.name || "").toLowerCase().includes(q)
+            );
+          })
+          .sort((a, b) => String(a.title).localeCompare(String(b.title), "zh-Hant"));
+        return { cinema, titles };
+      })
+      .filter((row) => row.titles.length)
+      .sort((a, b) => cmpCinema(a.cinema, b.cinema, state.sort));
+  };
 
   const chip = (kind, id, label, pressed) =>
     `<button type="button" class="movies-chip" data-filter="${kind}" data-value="${escapeHtml(id)}" aria-pressed="${pressed ? "true" : "false"}">${escapeHtml(label)}</button>`;
@@ -212,12 +249,21 @@ export function createMovies(root, { onStatus } = {}) {
     </div>
   `;
 
-  const cinemaHead = (cinema, url, asTitle) => `
+  const cinemaHead = (cinema, url) => `
     <div class="movies-cinema-head">
-      ${asTitle ? `<h3 class="movies-cinema-name">${escapeHtml(cinema.name)}</h3>` : `<span class="movies-cinema-name">${escapeHtml(cinema.name)}</span>`}
-      <span class="movies-meta">${escapeHtml(REGION_LABEL[cinema.region] || cinema.region || "")}${CHAIN_LABEL[cinema.chain] ? ` · ${escapeHtml(CHAIN_LABEL[cinema.chain])}` : ""}</span>
+      <h3 class="movies-cinema-name">${escapeHtml(cinema.name)}</h3>
+      ${badge(cinema)}
       ${buyLink(url)}
     </div>
+  `;
+
+  const filmButton = (movie, count, pressed) => `
+    <button type="button" class="movies-pick" data-pick-movie="${escapeHtml(movie.id)}" aria-pressed="${pressed ? "true" : "false"}">
+      <span class="movies-pick-title">${escapeHtml(movie.title)}</span>
+      ${movie.rating ? `<span class="movies-rating">${escapeHtml(movie.rating)}</span>` : ""}
+      ${Number(movie.runtime) > 0 ? `<span class="movies-runtime">${escapeHtml(movie.runtime)} 分鐘</span>` : ""}
+      <span class="movies-count">${escapeHtml(count)} 間戲院上映</span>
+    </button>
   `;
 
   const resultsHtml = () => {
@@ -228,54 +274,63 @@ export function createMovies(root, { onStatus } = {}) {
       : "";
 
     if (state.mode === "cinema") {
-      const blocks = cinemas()
-        .filter((cinema) => cinemaPasses(cinema))
-        .sort((a, b) => cmpCinema(a, b, state.sort))
-        .map((cinema) => {
-          const url = safeBuyUrl(cinema);
-          const titles = movies()
-            .filter((movie) => queryHit(movie, cinema) && showsFor(movie, cinema.id).length)
-            .sort((a, b) => String(a.title).localeCompare(String(b.title), "zh-Hant"));
-          if (!titles.length) return "";
-          return `
-            <article class="movies-card">
-              ${cinemaHead(cinema, url, true)}
-              ${titles
-                .map(
-                  (movie) => `
-                <div class="movies-block">
-                  ${movieHead(movie)}
-                  ${showBlock(showsFor(movie, cinema.id), url)}
-                </div>`
-                )
-                .join("")}
-            </article>`;
-        })
-        .filter(Boolean);
-      return `${note}${blocks.join("") || `<p class="movies-empty muted">冇符合條件嘅場次</p>`}`;
+      const rows = cinemaRows();
+      const selected =
+        rows.find((row) => row.cinema.id === state.cinemaId) || rows[0] || null;
+      const picker = `
+        <div class="movies-picker" role="listbox" aria-label="揀戲院">
+          ${rows
+            .map((row) => {
+              const on = selected && row.cinema.id === selected.cinema.id;
+              return `<button type="button" class="movies-pick" data-pick-cinema="${escapeHtml(row.cinema.id)}" aria-pressed="${on ? "true" : "false"}">
+                <span class="movies-pick-title">${escapeHtml(row.cinema.name)}</span>
+                ${badge(row.cinema)}
+              </button>`;
+            })
+            .join("")}
+        </div>
+      `;
+      if (!selected) return `${note}${picker}<p class="movies-empty muted">冇符合條件嘅場次</p>`;
+      const url = safeBuyUrl(selected.cinema);
+      const body = `
+        <article class="movies-card">
+          ${cinemaHead(selected.cinema, url)}
+          ${selected.titles
+            .map(
+              (movie) => `
+            <div class="movies-block">
+              ${movieHead(movie)}
+              ${showBlock(showsFor(movie, selected.cinema.id), url)}
+            </div>`
+            )
+            .join("")}
+        </article>
+      `;
+      return `${note}${picker}${body}`;
     }
 
-    const blocks = movies()
-      .map((movie) => {
-        const rows = pairsForMovie(movie);
-        if (!rows.length) return "";
-        return `
-          <article class="movies-card">
-            ${movieHead(movie)}
-            ${rows
-              .map((cinema) => {
-                const url = safeBuyUrl(cinema);
-                return `
-              <div class="movies-block">
-                ${cinemaHead(cinema, url, false)}
-                ${showBlock(showsFor(movie, cinema.id), url)}
-              </div>`;
-              })
-              .join("")}
-          </article>`;
+    const films = filmsWithShows();
+    const selectedAll = state.movieId === "all";
+    const selectedFilm = selectedAll ? null : films.find((row) => row.movie.id === state.movieId) || films[0] || null;
+    const activeId = selectedAll ? "all" : selectedFilm?.movie.id || "all";
+    const picker = `
+      <div class="movies-picker" role="listbox" aria-label="揀電影">
+        <button type="button" class="movies-pick" data-pick-movie="all" aria-pressed="${activeId === "all" ? "true" : "false"}">
+          <span class="movies-pick-title">全部電影</span>
+        </button>
+        ${films.map((row) => filmButton(row.movie, row.rows.length, row.movie.id === activeId)).join("")}
+      </div>
+    `;
+    const cards = (selectedAll ? films : selectedFilm ? [selectedFilm] : []).flatMap((row) =>
+      row.rows.map((cinema) => {
+        const url = safeBuyUrl(cinema);
+        const filmLabel = selectedAll
+          ? `<div class="movies-block">${movieHead(row.movie)}${showBlock(showsFor(row.movie, cinema.id), url)}</div>`
+          : `<div class="movies-block">${showBlock(showsFor(row.movie, cinema.id), url)}</div>`;
+        return `<article class="movies-card">${cinemaHead(cinema, url)}${filmLabel}</article>`;
       })
-      .filter(Boolean);
-    return `${note}${blocks.join("") || `<p class="movies-empty muted">冇符合條件嘅場次</p>`}`;
+    );
+    return `${note}${picker}${cards.join("") || `<p class="movies-empty muted">冇符合條件嘅場次</p>`}`;
   };
 
   const paintResults = () => {
@@ -304,6 +359,18 @@ export function createMovies(root, { onStatus } = {}) {
     if (modeBtn) {
       state.mode = modeBtn.dataset.mode === "cinema" ? "cinema" : "movie";
       syncPressed();
+      paintResults();
+      return;
+    }
+    const movieBtn = e.target.closest("[data-pick-movie]");
+    if (movieBtn) {
+      state.movieId = movieBtn.dataset.pickMovie || "all";
+      paintResults();
+      return;
+    }
+    const cinemaBtn = e.target.closest("[data-pick-cinema]");
+    if (cinemaBtn) {
+      state.cinemaId = cinemaBtn.dataset.pickCinema || "";
       paintResults();
       return;
     }

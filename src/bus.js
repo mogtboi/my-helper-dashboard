@@ -26,21 +26,35 @@ function minsUntil(etaIso, now = Date.now()) {
   return Math.round(diff / 60000);
 }
 
-async function loadEtaRows(stopId, route, serviceType) {
+function etaDir(bound) {
+  if (bound === "I" || bound === "inbound") return "I";
+  if (bound === "O" || bound === "outbound") return "O";
+  return "";
+}
+
+async function loadEtaRows(stopId, route, serviceType, bound) {
   const rows = await fetchEta(stopId, route, serviceType);
   const now = Date.now();
-  const withEta = rows.filter((r) => r.eta != null && String(r.eta).trim() !== "");
+  const dir = etaDir(bound);
+  const scoped = rows.filter((r) => !dir || !r.dir || r.dir === dir);
+  const withEta = scoped
+    .filter((r) => {
+      if (r.eta == null || String(r.eta).trim() === "") return false;
+      const etaMs = Date.parse(r.eta);
+      return Number.isFinite(etaMs) && etaMs >= now - 30000;
+    })
+    .sort((a, b) => Date.parse(a.eta) - Date.parse(b.eta));
   const items = withEta
+    .slice(0, 3)
     .map((r) => ({
       dest: r.dest_tc,
       mins: minsUntil(r.eta, now),
       rmk: r.rmk_tc,
-    }))
-    .slice(0, 3);
+    }));
   if (items.length) return { items, reason: "" };
   const remarks = [
     ...new Set(
-      rows
+      scoped
         .filter((r) => (r.eta == null || String(r.eta).trim() === "") && String(r.rmk_tc || "").trim())
         .map((r) => String(r.rmk_tc).trim())
     ),
@@ -449,7 +463,7 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     }
     const seq = ++refreshSeq;
     try {
-      const eta = await loadEtaRows(current.stopId, current.route, current.serviceType || "1");
+      const eta = await loadEtaRows(current.stopId, current.route, current.serviceType || "1", current.bound);
       if (seq !== refreshSeq) return;
       if (!current.destName && eta.items[0]?.dest) current.destName = eta.items[0].dest;
       if (typingInSearch()) return;

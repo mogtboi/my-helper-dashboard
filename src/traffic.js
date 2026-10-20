@@ -200,9 +200,8 @@ function headingFromBody(body) {
   return cut.length > 48 ? `${cut.slice(0, 48)}…` : cut;
 }
 
-/** Strip 「往…方向」 so e.g. 香港仔隧道往九龍方向 is not classed as Kowloon. */
-const DIRECTIONAL_PHRASE =
-  /往\s*(九龍|香港|港島|新界|荃灣|屯門|沙田|元朗|大埔|將軍澳|西貢|東涌|機場)[^，。；\s]*方向/g;
+/** Strip 「往…方向」 before region matching, including 觀塘／旺角／灣仔／葵涌. */
+const DIRECTIONAL_PHRASE = /往\s*[^，。；、（）()\s]{1,10}方向/g;
 
 function regionFromText(text) {
   const hay = String(text || "").replace(DIRECTIONAL_PHRASE, " ");
