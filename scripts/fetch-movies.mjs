@@ -1,11 +1,8 @@
 /**
- * Refresh public/data/movies.json from public Hong Kong showtimes.
- * Node native fetch only. Reads the public schedule API used by the
- * Emperor and Cinema City websites (signed the same way their H5 client is).
- * Keeps poster URLs, numeric scores, prices, and future presale dates the
- * API actually returns. Coming films stay without invented showtimes.
- * Broadway, MCL, and Golden Harvest pages on this network do not return a
- * parseable public schedule; those attempts are logged and skipped.
+ * Refresh public/data/movies.json from Emperor's public schedule API.
+ * Node native fetch only. One chain: Emperor (icirena). Each on-sale
+ * date is requested with showDate. Coming films stay without invented
+ * showtimes. Seat bands come only from saleCount and hallSeatCount.
  * Any failure or empty result keeps the existing file and exits 0.
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -25,68 +22,23 @@ const CHAINS = [
     wapid: "ECML_WEB_PROD_S_MPS",
     officialUrl: "https://www.emperorcinemas.com/",
   },
-  {
-    id: "cinemacity",
-    wapid: "CICI_WEB_PROD_S_MPS",
-    officialUrl: "https://www.cinemacity.com.hk/",
-  },
 ];
+
+/** Days from today, inclusive, requested with showDate. */
+const DATE_SPAN = 14;
 
 const NOTES = [];
-
-/**
- * Hand-written house list for chains whose public pages do not yield a schedule.
- * Directory only: no showtimes. Official homepages, https, no userinfo.
- */
-const DIRECTORY = [
-  { id: "broadway-hollywood", name: "荷里活百老匯", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
-  { id: "broadway-gala-langham", name: "GALA 朗豪坊", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
-  { id: "broadway-moko-bplus", name: "MOKO B+", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
-  { id: "broadway-my-cinema-yoho", name: "MY CINEMA YOHO MALL", region: "nt", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
-  { id: "broadway-tsuen-wan", name: "荃灣百老匯", region: "nt", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
-  { id: "broadway-festival-grand", name: "Festival Grand 又一城", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
-  { id: "broadway-palace-apm", name: "PALACE apm", region: "kln", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
-  { id: "broadway-cyberport", name: "數碼港百老匯", region: "hki", chain: "broadway", officialUrl: "https://www.cinema.com.hk/" },
-  { id: "mcl-k11-art-house", name: "K11 Art House", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "mcl-telford", name: "MCL 德福", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "mcl-airside", name: "MCL Airside", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "mcl-lohas", name: "MCL The Lohas", region: "nt", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "mcl-kornhill", name: "MCL 康怡", region: "hki", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "mcl-amoy", name: "MCL 淘大", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "mcl-luk-yeung", name: "MCL 綠楊", region: "nt", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "mcl-stars", name: "MCL 星光", region: "nt", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "mcl-jp", name: "MCL JP", region: "hki", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "mcl-d2", name: "MCL D2 Place", region: "kln", chain: "mcl", officialUrl: "https://www.mclcinema.com/" },
-  { id: "gh-the-sky", name: "嘉禾 the sky 奧海城", region: "kln", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
-  { id: "gh-whampoa", name: "嘉禾黃埔", region: "kln", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
-  { id: "gh-stage-tuen-mun", name: "嘉禾 StagE 屯門", region: "nt", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
-  { id: "gh-mikiki", name: "嘉禾 Mikiki", region: "kln", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
-  { id: "gh-maritime", name: "嘉禾青衣城", region: "nt", chain: "goldenharvest", officialUrl: "https://www.goldenharvest.com/" },
-];
-
-function withDirectory(cinemas) {
-  const seen = new Set(cinemas.map((cinema) => cinema.id));
-  const next = [...cinemas];
-  for (const row of DIRECTORY) {
-    if (seen.has(row.id)) continue;
-    let officialUrl = "";
-    try {
-      const url = new URL(row.officialUrl);
-      if (url.protocol === "https:" && !url.username && !url.password) officialUrl = url.href;
-    } catch {
-      officialUrl = "";
-    }
-    if (!officialUrl) continue;
-    seen.add(row.id);
-    next.push({ ...row, officialUrl });
-  }
-  return next;
-}
 
 function keep(reason) {
   console.log(`movies: kept existing file (${reason})`);
   if (NOTES.length) console.log(NOTES.map((n) => `movies: ${n}`).join("\n"));
   process.exit(0);
+}
+
+function addDays(date, days) {
+  const next = new Date(`${date}T04:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
 }
 
 function hktParts(ms) {
@@ -205,20 +157,60 @@ async function mapPool(items, limit, fn) {
   return out;
 }
 
-async function schedulesForFilm(wapid, filmUniqueId) {
+async function schedulesForFilm(wapid, filmUniqueId, today) {
   const rows = [];
-  for (let page = 1; page <= 5; page += 1) {
-    const batch = await callApi(wapid, "gop.alipic.icirena.own.filmschedule.list", {
-      filmUniqueId,
-      curPage: page,
-      itemsPerPage: 100,
-    });
-    const list = Array.isArray(batch) ? batch : [];
-    rows.push(...list);
-    const count = list.reduce((n, row) => n + (Array.isArray(row?.schedules) ? row.schedules.length : 0), 0);
-    if (list.length < 1 || count < 100) break;
+  for (let offset = 0; offset < DATE_SPAN; offset += 1) {
+    const showDate = addDays(today, offset);
+    try {
+      for (let page = 1; page <= 5; page += 1) {
+        const batch = await callApi(wapid, "gop.alipic.icirena.own.filmschedule.list", {
+          filmUniqueId,
+          curPage: page,
+          itemsPerPage: 100,
+          showDate,
+        });
+        const list = Array.isArray(batch) ? batch : [];
+        rows.push(...list);
+        const count = list.reduce((n, row) => n + (Array.isArray(row?.schedules) ? row.schedules.length : 0), 0);
+        if (list.length < 1 || count < 100) break;
+      }
+    } catch (err) {
+      NOTES.push(`schedule ${filmUniqueId} ${showDate}: ${err.message || err}`);
+    }
   }
   return rows;
+}
+
+/**
+ * Band from the session's own saleCount and hallSeatCount.
+ * Remaining share: >30% 充足, >10% 尚餘少量, >0 僅餘極少, otherwise 滿座.
+ * No band when those counts are missing. Does not invent a seat plan.
+ */
+function seatOf(show) {
+  const total = Number(show?.hallSeatCount);
+  const sold = Number(show?.saleCount);
+  if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(sold) || sold < 0) return "";
+  const remaining = total - sold;
+  if (remaining <= 0) return "soldout";
+  const left = remaining / total;
+  if (left <= 0.1) return "few";
+  if (left <= 0.3) return "low";
+  return "ok";
+}
+
+/** https Emperor URL already on the session. Never built from a session id. */
+function bookingUrlOf(show) {
+  const raw = String(show?.bookingUrl || show?.ticketUrl || show?.buyUrl || show?.scheduleUrl || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (url.protocol !== "https:" || url.username || url.password) return "";
+    if (host !== "emperorcinemas.com" && !host.endsWith(".emperorcinemas.com")) return "";
+    return url.href;
+  } catch {
+    return "";
+  }
 }
 
 function listOf(film) {
@@ -299,7 +291,7 @@ async function fetchChain(chain, today) {
   const ticketed = films.filter((film) => listOf(film) !== "coming");
   const pages = await mapPool(ticketed, 4, async (film) => {
     try {
-      return { film, rows: await schedulesForFilm(chain.wapid, film.filmUniqueId) };
+      return { film, rows: await schedulesForFilm(chain.wapid, film.filmUniqueId, today) };
     } catch (err) {
       NOTES.push(`${chain.id} schedule ${film.filmUniqueId || film.filmName}: ${err.message || err}`);
       return { film, rows: [] };
@@ -317,7 +309,7 @@ async function fetchChain(chain, today) {
       const region = regionOf(info.cityName);
       const cinemaLinkId = String(info.cinemaLinkId || "");
       const name = String(info.cinemaName || "").trim();
-      if (!region || !cinemaLinkId || !name) continue;
+      if (!cinemaLinkId || !name) continue;
       const cinemaId = `${chain.id}-${cinemaLinkId}`;
       if (!cinemas.has(cinemaId)) {
         cinemas.set(cinemaId, {
@@ -339,6 +331,10 @@ async function fetchChain(chain, today) {
         if (format) item.format = format;
         const price = priceOf(show);
         if (price > 0) item.price = price;
+        const seat = seatOf(show);
+        if (seat) item.seat = seat;
+        const bookingUrl = bookingUrlOf(show);
+        if (bookingUrl) item.bookingUrl = bookingUrl;
         const key = `${cinemaId}|${item.date}|${item.time}|${item.house || ""}|${item.format || ""}|${item.price || ""}`;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -406,7 +402,6 @@ async function main() {
       console.log(`movies: ${chain.id} failed: ${err.message || err}`);
     }
   }
-  NOTES.push("broadway cinema.com.hk, mclcinema.com, and goldenharvest.com did not return a parseable public schedule from this environment");
   const merged = mergeChains(parts);
   if (!merged.movies.length) keep("no fetched films");
   // The written movie list is this refresh only. Titles absent from the source are not copied back from the old file.
@@ -417,7 +412,7 @@ async function main() {
     sample: false,
     updated: today,
     note: "",
-    cinemas: withDirectory(merged.cinemas),
+    cinemas: merged.cinemas,
     movies,
   };
   try {

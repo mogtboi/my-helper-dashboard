@@ -52,6 +52,7 @@ async function loadJson(url) {
   }
 }
 
+let infoCache = null;
 let parkCache = null;
 
 /** vacancy_type A/B/C from the vacancy feed. Missing or negative vacancy is not live. */
@@ -59,7 +60,7 @@ export function vacancyStatus(item) {
   const kind = String(item?.vacancy_type || "").toUpperCase();
   const n = Number(item?.vacancy);
   const finite = Number.isFinite(n);
-  if (kind === "C") return { live: true, spaces: -1, text: "⚪ 關閉", tone: "closed" };
+  if (kind === "C") return { live: false, spaces: -1, text: "⚪ 關閉", tone: "closed" };
   if (!finite || n < 0) return { live: false, spaces: null, text: "暫無數據", tone: "none" };
   if (kind === "A" && n === 0) return { live: true, spaces: 0, text: "🔴 已滿", tone: "full" };
   if (kind === "A" && n > 0) return { live: true, spaces: n, text: `🟢 剩 ${n} 位`, tone: "ok" };
@@ -93,10 +94,14 @@ function vacancyOf(row) {
 
 async function loadParks(force = false) {
   if (parkCache && !force) return { ok: true, parks: parkCache, message: "" };
-  const [infoRes, vacRes] = await Promise.all([loadJson(INFO_URL), loadJson(VAC_URL)]);
-  if (!infoRes.ok) return { ok: false, parks: [], message: infoRes.message || "停車場資料暫無" };
+  if (!infoCache) {
+    const infoRes = await loadJson(INFO_URL);
+    if (!infoRes.ok) return { ok: false, parks: [], message: infoRes.message || "停車場資料暫無" };
+    infoCache = Array.isArray(infoRes.data?.results) ? infoRes.data.results : [];
+  }
+  const vacRes = await loadJson(VAC_URL);
   if (!vacRes.ok) return { ok: false, parks: [], message: vacRes.message || "車位數據暫無" };
-  const infoRows = Array.isArray(infoRes.data?.results) ? infoRes.data.results : [];
+  const infoRows = infoCache;
   const vacRows = Array.isArray(vacRes.data?.results) ? vacRes.data.results : [];
   const vacById = new Map(vacRows.map((row) => [String(row.park_Id), vacancyOf(row)]));
   const rows = infoRows.map((info) => {

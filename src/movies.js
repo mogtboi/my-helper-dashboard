@@ -92,6 +92,35 @@ function hktToday(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong" }).format(now);
 }
 
+const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+
+function addHktDays(date, days) {
+  const next = new Date(`${date}T04:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+}
+
+function weekdayMark(date) {
+  const next = new Date(`${date}T04:00:00Z`);
+  return WEEKDAYS[next.getUTCDay()] || "";
+}
+
+function dateChipLabel(date, count, today) {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ""));
+  if (!parts) return "";
+  const tail = `${Number(parts[2])}/${Number(parts[3])} (${weekdayMark(date)}) · ${count}場`;
+  if (date === today) return `今日 ${tail}`;
+  if (date === addHktDays(today, 1)) return `聽日 ${tail}`;
+  return tail;
+}
+
+const SEAT_TEXT = {
+  ok: "🟢 充足",
+  low: "🟡 尚餘少量",
+  few: "🟠 僅餘極少",
+  soldout: "🔴 滿座",
+};
+
 function hktNowMinutes(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Hong_Kong",
@@ -154,6 +183,7 @@ function pillLabel(show, today) {
   if (show.format) bits.push(String(show.format));
   const price = Number(show.price);
   if (Number.isFinite(price) && price > 0) bits.push(`$${Math.round(price)}`);
+  if (SEAT_TEXT[show.seat]) bits.push(SEAT_TEXT[show.seat]);
   return bits.filter(Boolean).join(" · ");
 }
 
@@ -166,8 +196,22 @@ function buyLink(url, directory = false) {
 
 function timePill(show, url, today) {
   const label = escapeHtml(pillLabel(show, today));
-  if (!url) return `<span class="movies-time is-plain">${label}</span>`;
-  return `<a class="movies-time" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  const sold = show?.seat === "soldout" ? " is-soldout" : "";
+  if (!url) return `<span class="movies-time is-plain${sold}">${label}</span>`;
+  return `<a class="movies-time${sold}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+}
+
+function safeShowUrl(show, cinema) {
+  const raw = String(show?.bookingUrl || "").trim();
+  if (raw) {
+    try {
+      const url = new URL(raw);
+      if (url.protocol === "https:" && !url.username && !url.password && isListedOfficialHost(raw)) return url.href;
+    } catch {
+      /* fall back to the cinema ticket page */
+    }
+  }
+  return safeBuyUrl(cinema);
 }
 
 function cmpCinema(a, b, sort) {
@@ -231,6 +275,7 @@ export function createMovies(root, { onStatus } = {}) {
     cinemaId: "",
     showRest: false,
     shown: PAGE_SIZE,
+    selectedDate: "",
   };
   let payload = null;
   let loadError = "";
@@ -252,17 +297,45 @@ export function createMovies(root, { onStatus } = {}) {
     const date = show?.date || today;
     if (date < today) return false;
     if (todayOnly && date !== today) return false;
-    if (!state.hidePast) return true;
-    if (date > today) return true;
+    if (!state.hidePast || date !== today) return true;
     const mins = timeToMinutes(show.time);
     if (mins == null) return false;
     return mins >= hktNowMinutes();
   };
 
-  const showsFor = (movie, cinemaId, todayOnly) =>
+  /** Clock filter only for the selected day when that day is today. */
+  const showOnDate = (show, date) => {
+    const today = hktToday();
+    const showDate = String(show?.date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(showDate) || showDate < today) return false;
+    if (date && showDate !== date) return false;
+    if (!state.hidePast || showDate !== today || (date && date !== today)) return true;
+    const mins = timeToMinutes(show.time);
+    if (mins == null) return false;
+    return mins >= hktNowMinutes();
+  };
+
+  const showsFor = (movie, cinemaId, date) =>
     (movie.showtimes || [])
-      .filter((show) => show.cinemaId === cinemaId && showVisible(show, { todayOnly }))
+      .filter((show) => show.cinemaId === cinemaId && showOnDate(show, date))
       .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.time).localeCompare(String(b.time)));
+
+  /**
+   * Calendar today, unless the file has no show on that date.
+   * After midnight, before the next refresh, this is the earliest later date.
+   */
+  const activeScheduleDate = () => {
+    const today = hktToday();
+    let earliest = "";
+    for (const movie of movies()) {
+      for (const show of movie.showtimes || []) {
+        const date = String(show?.date || "");
+        if (date === today) return today;
+        if (date > today && (!earliest || date < earliest)) earliest = date;
+      }
+    }
+    return earliest || today;
+  };
 
   const query = () => state.query.trim().toLowerCase();
 
@@ -286,7 +359,10 @@ export function createMovies(root, { onStatus } = {}) {
   const metaHtml = (movie) => {
     if (scoresAreFallback()) {
       const stats = todayStats(movie);
-      return escapeHtml(`🎬 ${stats.cinemas}間上映 · 今日 ${stats.shows}場`);
+      const today = hktToday();
+      const day = activeScheduleDate();
+      const when = day === today ? "今日" : `${Number(day.slice(5, 7))}/${Number(day.slice(8))}`;
+      return escapeHtml(`🎬 ${stats.cinemas}間上映 · ${when} ${stats.shows}場`);
     }
     const likes = countOf(movie.likeCount);
     const comments = countOf(movie.commentCount);
@@ -300,11 +376,11 @@ export function createMovies(root, { onStatus } = {}) {
   };
 
   const todayStats = (movie) => {
-    const today = hktToday();
+    const today = activeScheduleDate();
     const ids = new Set();
     let shows = 0;
     for (const show of movie.showtimes || []) {
-      const date = show.date || today;
+      const date = show.date || "";
       if (date !== today) continue;
       shows += 1;
       if (show.cinemaId) ids.add(show.cinemaId);
@@ -354,7 +430,7 @@ export function createMovies(root, { onStatus } = {}) {
     const titleHit = Boolean(q) && String(movie.title || "").toLowerCase().includes(q);
     return cinemas()
       .filter((cinema) => {
-        if (!cinemaPasses(cinema) || !showsFor(movie, cinema.id, false).length) return false;
+        if (!cinemaPasses(cinema) || !showsFor(movie, cinema.id, state.selectedDate).length) return false;
         if (!q || titleHit) return true;
         return String(cinema.name || "").toLowerCase().includes(q);
       })
@@ -369,7 +445,7 @@ export function createMovies(root, { onStatus } = {}) {
       .map((cinema) => {
         const titles = todayFilms
           .filter((movie) => {
-            if (!showsFor(movie, cinema.id, true).length) return false;
+            if (!showsFor(movie, cinema.id, state.selectedDate).length) return false;
             if (!q) return true;
             return (
               String(movie.title || "").toLowerCase().includes(q) ||
@@ -394,6 +470,70 @@ export function createMovies(root, { onStatus } = {}) {
 
   const chip = (kind, id, label, pressed) =>
     `<button type="button" class="movies-chip" data-filter="${kind}" data-value="${escapeHtml(id)}" aria-pressed="${pressed ? "true" : "false"}">${escapeHtml(label)}</button>`;
+
+  const dateRowsFrom = (shows) => {
+    const today = hktToday();
+    const map = new Map();
+    for (const show of shows) {
+      const date = String(show?.date || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today) continue;
+      const row = map.get(date) || { date, count: 0, remaining: 0 };
+      row.count += 1;
+      if (showOnDate(show, date)) row.remaining += 1;
+      map.set(date, row);
+    }
+    return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+  };
+
+  const useScheduleDate = (rows) => {
+    const today = hktToday();
+    if (!(state.selectedDate && rows.some((row) => row.date === state.selectedDate))) {
+      const next = rows.find((row) => row.remaining > 0) || rows[0];
+      state.selectedDate = next?.date || today;
+    }
+    return state.selectedDate;
+  };
+
+  const datePillsHtml = (rows) => {
+    if (!rows.length) return "";
+    const today = hktToday();
+    const selected = useScheduleDate(rows);
+    return `<div class="movies-pills movies-dates" role="group" aria-label="日期">${rows
+      .map(
+        (row) =>
+          `<button type="button" class="movies-chip" data-show-date="${escapeHtml(row.date)}" aria-pressed="${row.date === selected ? "true" : "false"}">${escapeHtml(dateChipLabel(row.date, row.count, today))}</button>`
+      )
+      .join("")}</div>`;
+  };
+
+  const showsForMovieScope = (movie) => {
+    const q = query();
+    const titleHit = Boolean(q) && String(movie.title || "").toLowerCase().includes(q);
+    const out = [];
+    for (const show of movie.showtimes || []) {
+      const cinema = cinemas().find((item) => item.id === show.cinemaId);
+      if (!cinema || !cinemaPasses(cinema)) continue;
+      if (q && !titleHit && !String(cinema.name || "").toLowerCase().includes(q)) continue;
+      out.push(show);
+    }
+    return out;
+  };
+
+  const showsForCinemaPage = () => {
+    const q = query();
+    const out = [];
+    for (const movie of movies()) {
+      if (listOf(movie) === "coming") continue;
+      const titleHit = Boolean(q) && String(movie.title || "").toLowerCase().includes(q);
+      for (const show of movie.showtimes || []) {
+        const cinema = cinemas().find((item) => item.id === show.cinemaId);
+        if (!cinema || !cinemaPasses(cinema)) continue;
+        if (q && !titleHit && !String(cinema.name || "").toLowerCase().includes(q)) continue;
+        out.push(show);
+      }
+    }
+    return out;
+  };
 
   const shell = () => `
     <div class="movies-page">
@@ -420,9 +560,6 @@ export function createMovies(root, { onStatus } = {}) {
     <div class="movies-filters">
       <div class="movies-pills" role="group" aria-label="地區">
         ${REGIONS.map((r) => chip("region", r.id, r.label, state.region === r.id)).join("")}
-      </div>
-      <div class="movies-pills" role="group" aria-label="院線">
-        ${CHAINS.map((c) => chip("chain", c.id, c.label, state.chain === c.id)).join("")}
       </div>
       <div class="movies-filter-row">
         <label class="movies-sort">排序
@@ -457,10 +594,9 @@ export function createMovies(root, { onStatus } = {}) {
     </button>
   `;
 
-  const cinemaCard = (cinema, movie, todayOnly) => {
+  const cinemaCard = (cinema, movie) => {
     const url = safeBuyUrl(cinema);
-    const today = hktToday();
-    const shows = showsFor(movie, cinema.id, todayOnly);
+    const shows = showsFor(movie, cinema.id, state.selectedDate);
     const where = badgeText(cinema);
     return `
       <article class="movies-card">
@@ -468,7 +604,7 @@ export function createMovies(root, { onStatus } = {}) {
         ${where ? `<p class="movies-where">${escapeHtml(where)}</p>` : ""}
         ${buyLink(url)}
         <div class="movies-show-block">
-          ${shows.map((show) => timePill(show, url, today)).join("")}
+          ${shows.map((show) => timePill(show, safeShowUrl(show, cinema), state.selectedDate)).join("")}
         </div>
       </article>
     `;
@@ -477,8 +613,10 @@ export function createMovies(root, { onStatus } = {}) {
   const drillHtml = (movie) => {
     const runtime = Number(movie.runtime) > 0 ? `<span class="movies-runtime">${escapeHtml(movie.runtime)} 分鐘</span>` : "";
     const rating = movie.rating ? `<span class="movies-rating">${escapeHtml(movie.rating)}</span>` : "";
+    const dateRows = dateRowsFrom(showsForMovieScope(movie));
+    useScheduleDate(dateRows);
     const rows = cinemasForFilm(movie);
-    const cards = rows.map((cinema) => cinemaCard(cinema, movie, false)).join("");
+    const cards = rows.map((cinema) => cinemaCard(cinema, movie)).join("");
     return `
       <button type="button" class="movies-back" data-back>← 返回電影列表</button>
       <div class="movies-drill-head">
@@ -489,6 +627,7 @@ export function createMovies(root, { onStatus } = {}) {
           <div class="movies-cell-score">${scoreRow(movie, scoresAreFallback())}</div>
         </div>
       </div>
+      ${datePillsHtml(dateRows)}
       ${filtersHtml()}
       ${cards || `<p class="movies-empty muted">冇符合條件嘅場次</p>`}
     `;
@@ -503,6 +642,8 @@ export function createMovies(root, { onStatus } = {}) {
       : "";
 
     if (state.mode === "cinema") {
+      const dateRows = dateRowsFrom(showsForCinemaPage());
+      useScheduleDate(dateRows);
       const rows = cinemaRows();
       const body = rows
         .map((row) => {
@@ -516,11 +657,10 @@ export function createMovies(root, { onStatus } = {}) {
                 ${buyLink(url, directory)}
                 ${row.titles
                   .map((movie) => {
-                    const today = hktToday();
-                    const shows = showsFor(movie, row.cinema.id, true);
+                    const shows = showsFor(movie, row.cinema.id, state.selectedDate);
                     return `<div class="movies-block">
                       <h4>${escapeHtml(movie.title)}</h4>
-                      <div class="movies-show-block">${shows.map((show) => timePill(show, url, today)).join("")}</div>
+                      <div class="movies-show-block">${shows.map((show) => timePill(show, safeShowUrl(show, row.cinema), state.selectedDate)).join("")}</div>
                     </div>`;
                   })
                   .join("")}
@@ -535,7 +675,7 @@ export function createMovies(root, { onStatus } = {}) {
           </article>`;
         })
         .join("");
-      return `${note}${filtersHtml()}${body || `<p class="movies-empty muted">冇符合條件嘅戲院</p>`}`;
+      return `${note}${datePillsHtml(dateRows)}${filtersHtml()}${body || `<p class="movies-empty muted">冇符合條件嘅戲院</p>`}`;
     }
 
     if (state.movieId) {
@@ -777,6 +917,12 @@ export function createMovies(root, { onStatus } = {}) {
     }
     if (e.target.closest("[data-show-rest]")) {
       state.showRest = !state.showRest;
+      paintResults();
+      return;
+    }
+    const dateBtn = e.target.closest("[data-show-date]");
+    if (dateBtn && root.contains(dateBtn)) {
+      state.selectedDate = dateBtn.dataset.showDate || "";
       paintResults();
       return;
     }

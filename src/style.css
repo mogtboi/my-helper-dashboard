@@ -2978,6 +2978,12 @@ body.drawer-open {
   color: #bdbdbd;
 }
 
+.movies-time.is-soldout {
+  color: #d7b4b4;
+  background: rgba(92, 42, 42, 0.45);
+  border-color: rgba(168, 96, 96, 0.7);
+}
+
 .movies-buy {
   color: #f5b82e;
   border: 1px solid rgba(245, 184, 46, 0.55);

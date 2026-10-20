@@ -107,7 +107,8 @@ export function createTransitHub(root, options = {}) {
       e.stopPropagation();
       const id = toggle.dataset.homeToggle;
       const enabled = { ...(getEnabled?.() || {}) };
-      enabled[id] = enabled[id] === false;
+      const currentlyOn = Boolean(enabled[id]);
+      enabled[id] = !currentlyOn;
       const next = saveModuleEnabled(enabled);
       setEnabled?.(next);
       onEnabledChange?.(next);
