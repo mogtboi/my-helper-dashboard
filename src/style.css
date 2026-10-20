@@ -89,7 +89,15 @@ body {
 .movies-grid,
 .movies-cell,
 .movies-top,
-.movies-drill-head {
+.movies-drill-head,
+.split-page,
+.split-page-panel,
+.split-tabs,
+.split-row,
+.split-field,
+.split-results,
+.split-line,
+.split-pill {
   min-width: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -2953,4 +2961,99 @@ body.drawer-open {
 .movies-empty,
 .movies-page .error {
   margin: 0.2rem 0 0;
+}
+
+.split-intro {
+  margin-top: 0;
+}
+
+.split-page {
+  overflow-x: hidden;
+}
+
+.split-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0.7rem;
+}
+
+.split-pill,
+.split-add,
+.split-remove,
+.split-copy {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink);
+  font: inherit;
+  border-radius: 999px;
+  padding: 0.38rem 0.7rem;
+  cursor: pointer;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+
+.split-pill[aria-pressed="true"] {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  font-weight: 700;
+}
+
+.split-add,
+.split-copy {
+  margin: 0.2rem 0 0.7rem;
+}
+
+.split-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.split-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.split-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.15rem 0 0.7rem;
+}
+
+.split-label,
+.split-note,
+.split-formula {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.split-formula {
+  display: block;
+}
+
+.split-input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--ink);
+  font: inherit;
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.split-subtotal,
+.split-gap,
+.split-line {
+  margin: 0.2rem 0;
+}
+
+.split-results {
+  margin-top: 0.4rem;
 }

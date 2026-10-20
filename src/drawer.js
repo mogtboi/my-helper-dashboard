@@ -28,6 +28,7 @@ const ROOT_ITEMS = [
   { id: "tco", nameTc: "買車成本", blurb: "買車 vs 搭車 · EV vs 油車 TCO" },
   { id: "movies", nameTc: "戲院場次", blurb: "上映電影／各區戲院時間表／官網買飛" },
   { id: "transit", nameTc: "交通總覽", blurb: "九巴、港鐵、專線小巴、城巴、停車場" },
+  { id: "split", nameTc: "夾錢／匯率計數", blurb: "Keeta 外賣夾單・堂食加一・外幣免稅回贈" },
   { id: "settings", nameTc: "設定", blurb: "加到主頁、天氣／巴士／港鐵等" },
 ];
 
@@ -55,7 +56,7 @@ function toggleRow(mod, on) {
 }
 
 /**
- * Left drawer (~67vw): 主頁 / 交通消息 / 買車成本 / 戲院場次 / 設定.
+ * Left drawer (~67vw): 主頁 / 交通消息 / 買車成本 / 戲院場次 / 交通總覽 / 夾錢 / 設定.
  */
 export function createDrawer({
   root,
@@ -71,6 +72,7 @@ export function createDrawer({
   onNavigateTco,
   onNavigateMovies,
   onNavigateTransit,
+  onNavigateSplit,
 }) {
   root.innerHTML = `
     <div class="drawer-backdrop" data-drawer-close hidden></div>
@@ -105,7 +107,7 @@ export function createDrawer({
 
   const renderRoot = () => {
     titleEl.textContent = "選單";
-    noteEl.textContent = "主頁、交通消息、買車成本、戲院場次，或者入設定管理主頁模組。";
+    noteEl.textContent = "主頁、交通消息、買車成本、戲院場次、交通總覽、夾錢，或者入設定管理主頁模組。";
     backBtn.hidden = true;
     body.innerHTML = `
       <nav class="drawer-cat-list" aria-label="選單">
@@ -301,6 +303,11 @@ export function createDrawer({
       if (id === "transit") {
         setOpen(false);
         onNavigateTransit?.();
+        return;
+      }
+      if (id === "split") {
+        setOpen(false);
+        onNavigateSplit?.();
         return;
       }
       if (id === "settings") {

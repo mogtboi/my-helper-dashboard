@@ -28,6 +28,7 @@ import {
   applyAppearance,
 } from "./prefsStore.js";
 import { createDrawer } from "./drawer.js";
+import { createSplitPage } from "./splitPage.js";
 
 const app = document.querySelector("#app");
 
@@ -53,7 +54,7 @@ app.innerHTML = `
   </header>
 
   <div id="view-home" class="app-view">
-    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／買車成本／戲院場次／交通總覽／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
+    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／買車成本／戲院場次／交通總覽／夾錢／匯率計數／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
 
     <div id="panel-stack" class="panel-stack">
       <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
@@ -105,6 +106,16 @@ app.innerHTML = `
     </section>
   </div>
 
+  <div id="view-split" class="app-view" hidden>
+    <section class="panel split-page-panel" aria-labelledby="split-title">
+      <div class="panel-head">
+        <h2 id="split-title">夾錢／匯率計數</h2>
+      </div>
+      <p class="muted split-intro">Keeta 外賣夾單・堂食加一・外幣免稅回贈</p>
+      <div id="split-root"></div>
+    </section>
+  </div>
+
   <div id="view-movies" class="app-view" hidden>
     <section class="panel movies-page-panel" data-panel-id="movies" aria-labelledby="movies-title">
       <div class="panel-head">
@@ -152,6 +163,7 @@ const viewTraffic = document.querySelector("#view-traffic");
 const viewTco = document.querySelector("#view-tco");
 const viewMovies = document.querySelector("#view-movies");
 const viewTransit = document.querySelector("#view-transit");
+const viewSplit = document.querySelector("#view-split");
 const stack = document.querySelector("#panel-stack");
 
 const VIEW_SUB = {
@@ -160,6 +172,7 @@ const VIEW_SUB = {
   tco: "買車成本模擬",
   movies: "戲院場次",
   transit: "交通總覽",
+  split: "夾錢／匯率計數",
 };
 
 const bottomTabs = document.querySelector("#bottom-tabs");
@@ -178,6 +191,7 @@ const showView = (name) => {
   viewTco.hidden = name !== "tco";
   viewMovies.hidden = name !== "movies";
   viewTransit.hidden = name !== "transit";
+  viewSplit.hidden = name !== "split";
   brandSub.textContent = VIEW_SUB[name] || "個人儀表板";
   document.body.dataset.view = name;
   syncBottomTabs(name === "settings" ? "settings" : name);
@@ -256,6 +270,7 @@ const movies = createMovies(document.querySelector("#movies-root"), { onStatus: 
 const gmbHome = createGmb(document.querySelector("#gmb-root"), { mode: "home", onStatus: setNet });
 const citybusHome = createCitybus(document.querySelector("#citybus-root"), { mode: "home", onStatus: setNet });
 const parkingHome = createParking(document.querySelector("#parking-root"), { mode: "home", onStatus: setNet });
+const splitPage = createSplitPage(document.querySelector("#split-root"));
 const transitHub = createTransitHub(document.querySelector("#transit-hub-root"), {
   getEnabled: () => moduleEnabled,
   setEnabled: (next) => {
@@ -331,6 +346,11 @@ const drawer = createDrawer({
     showView("transit");
     transitHub.start();
     setNet("交通總覽");
+  },
+  onNavigateSplit: () => {
+    showView("split");
+    splitPage.start();
+    setNet("夾錢／匯率計數（只計本機）");
   },
 });
 
