@@ -361,6 +361,192 @@ body {
   margin: 0;
 }
 
+.weather-tip {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0.45rem 0 0;
+  font-size: 0.86rem;
+}
+
+.weather-fnd-btn {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0.55rem;
+  padding: 0.35rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.weather-fnd {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.weather-fnd-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  max-width: 100%;
+  min-width: 0;
+  padding-bottom: 0.2rem;
+}
+
+.weather-fnd-day {
+  flex: 0 0 7.4rem;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  padding: 0.4rem 0.45rem;
+}
+
+.weather-fnd-week,
+.weather-fnd-temp,
+.weather-fnd-psr {
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.weather-fnd-text {
+  margin: 0.2rem 0;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.panel[data-panel-id="gmb"] {
+  border-color: #1f8a4c;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(31, 138, 76, 0.18);
+}
+
+.panel[data-panel-id="citybus"] {
+  border-color: #e08a2c;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(224, 138, 44, 0.18);
+}
+
+.panel[data-panel-id="parking"] {
+  border-color: #1aa3a8;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(26, 163, 168, 0.18);
+}
+
+.transit-hub-panel,
+.transit-search,
+.transit-section,
+.transit-stops,
+.transit-pin {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.transit-intro {
+  margin-top: 0;
+}
+
+.transit-toggles,
+.transit-chips,
+.transit-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.transit-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.transit-toggle button,
+.transit-chip,
+.transit-pin-btn,
+.transit-stop {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink);
+  font: inherit;
+  border-radius: 999px;
+  padding: 0.32rem 0.65rem;
+  cursor: pointer;
+}
+
+.transit-toggle button[aria-pressed="true"],
+.transit-chip[aria-pressed="true"],
+.transit-stop[aria-pressed="true"] {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  font-weight: 700;
+}
+
+.transit-form {
+  align-items: center;
+}
+
+.transit-input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--ink);
+  font: inherit;
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.transit-section {
+  margin-top: 0.9rem;
+}
+
+.transit-section h3,
+.transit-pin h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.transit-stops {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.transit-stop {
+  border-radius: 0.7rem;
+  text-align: left;
+  width: 100%;
+}
+
+.transit-pin {
+  margin-top: 0.45rem;
+}
+
+.transit-etas {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.transit-block {
+  margin-top: 0.45rem;
+  min-width: 0;
+}
+
 .muted {
   color: var(--ink-soft);
   font-size: 0.82rem;

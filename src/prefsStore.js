@@ -8,6 +8,9 @@ export const MODULE_CATALOG = [
   { id: "weather", nameTc: "天氣（含警示／UV／空氣／日出）", category: "天氣" },
   { id: "bus", nameTc: "巴士 ETA", category: "巴士" },
   { id: "mtr", nameTc: "港鐵下一班車", category: "港鐵" },
+  { id: "gmb", nameTc: "專線小巴", category: "巴士" },
+  { id: "citybus", nameTc: "城巴", category: "巴士" },
+  { id: "parking", nameTc: "停車場", category: "巴士" },
   { id: "holiday", nameTc: "公眾假期倒數", category: "假期" },
   { id: "radio", nameTc: "電台（港台）", category: "電台" },
 ];
@@ -23,6 +26,9 @@ export const DEFAULT_ENABLED = {
   weather: true,
   bus: true,
   mtr: true,
+  gmb: false,
+  citybus: false,
+  parking: false,
   holiday: true,
   radio: true,
 };

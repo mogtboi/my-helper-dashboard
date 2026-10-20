@@ -1,4 +1,5 @@
 import { districtById } from "./weatherStore.js";
+import { escapeHtml } from "./escapeHtml.js";
 
 const HKO_ICON_DESC = {
   50: "陽光充沛",
@@ -86,6 +87,48 @@ function warnList(warnsum) {
     }));
 }
 
+/** One line from data the card already loaded. Wording is ours; numbers come from HKO. */
+export function weatherTip({ temp, humidity, uvValue, uvDesc, rainfallMax, warningText, iconCode } = {}) {
+  const warns = String(warningText || "");
+  const rainWarn = /雨|雷暴|水浸|洪水/.test(warns);
+  const hotWarn = /酷熱|熱浪|炎熱/.test(warns);
+  const coldWarn = /寒冷|霜凍/.test(warns);
+  const t = Number(temp);
+  const uv = Number(uvValue);
+  const rain = Number(rainfallMax);
+  const rainyIcon = [62, 63, 64, 65].includes(Number(iconCode));
+  const uvHigh = (Number.isFinite(uv) && uv >= 8) || /極高|甚高/.test(String(uvDesc || ""));
+  if (rainWarn || rainyIcon || (Number.isFinite(rain) && rain > 0)) {
+    return "☔ 有雨／降雨率高，出門記得帶遮";
+  }
+  if (coldWarn || (Number.isFinite(t) && t <= 18)) {
+    return "🧥 天氣清涼，建議帶件薄外套";
+  }
+  if (hotWarn || (Number.isFinite(t) && t >= 31) || uvHigh) {
+    if (hotWarn || (Number.isFinite(t) && t >= 31)) return "☀️ 酷熱＋UV極高，宜著淺色短袖及防曬";
+    return "☀️ UV 偏高，記得防曬";
+  }
+  if (Number.isFinite(Number(humidity)) && Number(humidity) >= 90) return "💧 濕度高，感覺會比較悶";
+  return "🌤️ 天氣大致穩定，出門都幾方便";
+}
+
+export function forecastHtml(fnd) {
+  const days = Array.isArray(fnd?.weatherForecast) ? fnd.weatherForecast.slice(0, 9) : [];
+  if (!days.length) return `<p class="muted">九日預報暫無</p>`;
+  return `<div class="weather-fnd-scroll">${days
+    .map((day) => {
+      const min = day?.forecastMintemp?.value;
+      const max = day?.forecastMaxtemp?.value;
+      return `<article class="weather-fnd-day">
+        <div class="weather-fnd-week">${escapeHtml(day?.week || "")}</div>
+        <div class="weather-fnd-text">${escapeHtml(day?.forecastWeather || "")}</div>
+        <div class="weather-fnd-temp">${escapeHtml(min ?? "—")}–${escapeHtml(max ?? "—")}°</div>
+        <div class="weather-fnd-psr">PSR ${escapeHtml(day?.PSR || "—")}</div>
+      </article>`;
+    })
+    .join("")}</div>`;
+}
+
 async function fetchJson(url) {
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -99,6 +142,7 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
   let place = null;
   let last = null;
   let timer = null;
+  let forecastOpen = false;
 
   const render = () => {
     const district = districtById(place);
@@ -128,6 +172,15 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
     const sun = last.sun;
     const fndRh = last.fnd?.weatherForecast?.[0];
 
+    const tip = weatherTip({
+      temp: hit?.value,
+      humidity: humidity?.value,
+      uvValue: uv?.value,
+      uvDesc: uv?.desc,
+      rainfallMax: rainfall?.max,
+      warningText: [...warns.map((w) => w.name), ...warnMsgs].join(" "),
+      iconCode,
+    });
     const iconUrl = `${weatherConfig.iconBase}${iconCode}.png`;
     const humTrend =
       fndRh?.forecastMaxrh && fndRh?.forecastMinrh
@@ -155,6 +208,7 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
           }
         </div>
       </div>
+      <p class="weather-tip">${escapeHtml(tip)}</p>
 
       ${
         sun
@@ -181,9 +235,15 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
         <p class="muted">更新 ${formatUpdated(payload.updateTime)}</p>
         <button type="button" class="ghost-btn" id="weather-change-btn">轉地區</button>
       </div>
+      <button type="button" class="weather-fnd-btn" id="weather-fnd-btn" aria-expanded="${forecastOpen ? "true" : "false"}">📅 未來 9 日天氣 ${forecastOpen ? "▴" : "▾"}</button>
+      <div class="weather-fnd" ${forecastOpen ? "" : "hidden"}>${forecastHtml(last.fnd)}</div>
       ${last.err ? `<p class="error">部分資料刷新失敗</p>` : ""}
     `;
     root.querySelector("#weather-change-btn")?.addEventListener("click", () => onChangePlace?.());
+    root.querySelector("#weather-fnd-btn")?.addEventListener("click", () => {
+      forecastOpen = !forecastOpen;
+      render();
+    });
   };
 
   const fetchAll = async () => {

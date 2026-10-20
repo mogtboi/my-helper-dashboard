@@ -7,6 +7,9 @@ export const DEFAULT_PANEL_ORDER = [
   "holiday",
   "bus",
   "mtr",
+  "gmb",
+  "citybus",
+  "parking",
   "radio",
 ];
 

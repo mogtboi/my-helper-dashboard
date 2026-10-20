@@ -10,7 +10,7 @@ import {
 
 const CAT_BLURBS = {
   天氣: "地區天氣、警告、UV、空氣質素、日出日落",
-  巴士: "路線喺主頁巴士卡管理；呢度只係顯示／隱藏面板",
+  巴士: "九巴喺主頁卡搜尋；小巴、城巴、停車場喺交通總覽",
   港鐵: "下一班車 ETA 同車站設定",
   假期: "公眾假期倒數、今日是否假期、本月勞工假日數",
   外觀: "字體大小同主題色（只存呢部機）",
@@ -27,6 +27,7 @@ const ROOT_ITEMS = [
   { id: "traffic", nameTc: "交通消息", blurb: "特別交通消息／封路／改道" },
   { id: "tco", nameTc: "買車成本", blurb: "買車 vs 搭車 · EV vs 油車 TCO" },
   { id: "movies", nameTc: "戲院場次", blurb: "上映電影／各區戲院時間表／官網買飛" },
+  { id: "transit", nameTc: "交通總覽", blurb: "九巴、港鐵、專線小巴、城巴、停車場" },
   { id: "settings", nameTc: "設定", blurb: "加到主頁、天氣／巴士／港鐵等" },
 ];
 
@@ -69,6 +70,7 @@ export function createDrawer({
   onNavigateTraffic,
   onNavigateTco,
   onNavigateMovies,
+  onNavigateTransit,
 }) {
   root.innerHTML = `
     <div class="drawer-backdrop" data-drawer-close hidden></div>
@@ -294,6 +296,11 @@ export function createDrawer({
       if (id === "movies") {
         setOpen(false);
         onNavigateMovies?.();
+        return;
+      }
+      if (id === "transit") {
+        setOpen(false);
+        onNavigateTransit?.();
         return;
       }
       if (id === "settings") {

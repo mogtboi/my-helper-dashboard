@@ -9,6 +9,10 @@ import { createRadio } from "./radio.js";
 import { createTraffic } from "./traffic.js";
 import { createTco } from "./tco.js";
 import { createMovies } from "./movies.js";
+import { createTransitHub } from "./transitHub.js";
+import { createGmb } from "./gmb.js";
+import { createCitybus } from "./citybus.js";
+import { createParking } from "./parking.js";
 import { loadBusSelection } from "./busStore.js";
 import { loadWeatherPlace, districtById } from "./weatherStore.js";
 import { loadMtrSelection } from "./mtrStore.js";
@@ -49,7 +53,7 @@ app.innerHTML = `
   </header>
 
   <div id="view-home" class="app-view">
-    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／買車成本／戲院場次／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
+    <p class="reorder-hint muted">☰ 選單：主頁／交通消息／買車成本／戲院場次／交通總覽／設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
 
     <div id="panel-stack" class="panel-stack">
       <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
@@ -67,10 +71,13 @@ app.innerHTML = `
       ${panelShell("holiday", "holiday-title", "公眾假期", "holiday-root")}
       ${panelShell("bus", "bus-title", "巴士", "bus-root", "panel-bus", "bus-actions")}
       ${panelShell("mtr", "mtr-title", "港鐵", "mtr-root")}
+      ${panelShell("gmb", "gmb-title", "專線小巴", "gmb-root", "panel-gmb")}
+      ${panelShell("citybus", "citybus-title", "城巴", "citybus-root", "panel-citybus")}
+      ${panelShell("parking", "parking-title", "停車場", "parking-root", "panel-parking")}
       ${panelShell("radio", "radio-title", "電台", "radio-root")}
     </div>
 
-    <p class="footer-note">公開資料：天文台 · AQHI · 九巴 · 港鐵 · 1823 假期 · 運輸署交通消息 · RTHK · 設定只存本機</p>
+    <p class="footer-note">公開資料：天文台 · AQHI · 九巴 · 專線小巴 · 城巴 · 港鐵 · 停車場 · 1823 假期 · 運輸署交通消息 · RTHK · 設定只存本機</p>
   </div>
 
   <div id="view-traffic" class="app-view" hidden>
@@ -86,6 +93,15 @@ app.innerHTML = `
   <div id="view-tco" class="app-view" hidden>
     <section class="panel tco-page-panel" data-panel-id="tco" aria-label="買車成本">
       <div id="tco-root"></div>
+    </section>
+  </div>
+
+  <div id="view-transit" class="app-view" hidden>
+    <section class="panel transit-hub-panel" aria-labelledby="transit-title">
+      <div class="panel-head">
+        <h2 id="transit-title">交通總覽</h2>
+      </div>
+      <div id="transit-hub-root"></div>
     </section>
   </div>
 
@@ -135,6 +151,7 @@ const viewHome = document.querySelector("#view-home");
 const viewTraffic = document.querySelector("#view-traffic");
 const viewTco = document.querySelector("#view-tco");
 const viewMovies = document.querySelector("#view-movies");
+const viewTransit = document.querySelector("#view-transit");
 const stack = document.querySelector("#panel-stack");
 
 const VIEW_SUB = {
@@ -142,6 +159,7 @@ const VIEW_SUB = {
   traffic: "特別交通消息",
   tco: "買車成本模擬",
   movies: "戲院場次",
+  transit: "交通總覽",
 };
 
 const bottomTabs = document.querySelector("#bottom-tabs");
@@ -159,6 +177,7 @@ const showView = (name) => {
   viewTraffic.hidden = name !== "traffic";
   viewTco.hidden = name !== "tco";
   viewMovies.hidden = name !== "movies";
+  viewTransit.hidden = name !== "transit";
   brandSub.textContent = VIEW_SUB[name] || "個人儀表板";
   document.body.dataset.view = name;
   syncBottomTabs(name === "settings" ? "settings" : name);
@@ -234,6 +253,24 @@ const mtr = createMtr(
 const traffic = createTraffic(document.querySelector("#traffic-root"), { onStatus: setNet });
 const tco = createTco(document.querySelector("#tco-root"));
 const movies = createMovies(document.querySelector("#movies-root"), { onStatus: setNet });
+const gmbHome = createGmb(document.querySelector("#gmb-root"), { mode: "home", onStatus: setNet });
+const citybusHome = createCitybus(document.querySelector("#citybus-root"), { mode: "home", onStatus: setNet });
+const parkingHome = createParking(document.querySelector("#parking-root"), { mode: "home", onStatus: setNet });
+const transitHub = createTransitHub(document.querySelector("#transit-hub-root"), {
+  getEnabled: () => moduleEnabled,
+  setEnabled: (next) => {
+    moduleEnabled = next;
+  },
+  onEnabledChange: (next) => {
+    moduleEnabled = next;
+    applyVisibility();
+    gmbHome.refresh();
+    citybusHome.refresh();
+    parkingHome.refresh();
+    setNet("主頁模組已更新（本機）");
+  },
+  onStatus: setNet,
+});
 
 const settings = createAppSettings({
   overlayRoot: overlay,
@@ -263,6 +300,10 @@ const drawer = createDrawer({
   onEnabledChange: (next) => {
     moduleEnabled = next;
     applyVisibility();
+    gmbHome.refresh();
+    citybusHome.refresh();
+    parkingHome.refresh();
+    transitHub.refreshToggles();
     setNet("主頁模組已更新（本機）");
   },
   getAppearance: () => appearance,
@@ -285,6 +326,11 @@ const drawer = createDrawer({
     showView("movies");
     movies.start();
     setNet("戲院場次");
+  },
+  onNavigateTransit: () => {
+    showView("transit");
+    transitHub.start();
+    setNet("交通總覽");
   },
 });
 
@@ -315,6 +361,9 @@ const boot = () => {
   holiday.start();
   bus.start(busSelection);
   mtr.start(mtrSelection);
+  gmbHome.start();
+  citybusHome.start();
+  parkingHome.start();
   createRadio(document.querySelector("#radio-root"), config.radio);
   traffic.start();
   showView("home");
