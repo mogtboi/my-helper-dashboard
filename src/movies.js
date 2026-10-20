@@ -134,7 +134,6 @@ export function createMovies(root, { onStatus } = {}) {
 
   const cinemas = () => (Array.isArray(payload?.cinemas) ? payload.cinemas : []);
   const movies = () => (Array.isArray(payload?.movies) ? payload.movies : []);
-  const cinemaById = (id) => cinemas().find((c) => c.id === id);
 
   const cinemaPasses = (cinema) => {
     if (!cinema) return false;
