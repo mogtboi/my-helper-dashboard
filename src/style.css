@@ -410,8 +410,10 @@ body {
 }
 
 .weather-fnd-day {
-  flex: 0 0 7.4rem;
-  min-width: 0;
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 7.4rem;
+  max-width: 14rem;
   border: 1px solid var(--line);
   border-radius: 0.7rem;
   padding: 0.4rem 0.45rem;
@@ -428,10 +430,9 @@ body {
   margin: 0.2rem 0;
   color: var(--ink-soft);
   font-size: 0.72rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.35;
+  white-space: normal;
+  overflow: visible;
 }
 
 .panel[data-panel-id="gmb"] {
@@ -2437,7 +2438,7 @@ body.drawer-open {
 @media (max-width: 768px) {
   .bottom-tab-bar {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     position: fixed;
     left: 0;
     right: 0;
@@ -2619,6 +2620,26 @@ body.drawer-open {
   gap: 12px 10px;
   min-width: 0;
   max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .movies-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .movies-mode {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.2rem;
+  }
+
+  .movies-cell-meta {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
 }
 
 .movies-cell,
@@ -3244,6 +3265,13 @@ body.drawer-open {
   padding: 0.45rem 0.6rem;
 }
 
+.split-input::placeholder {
+  color: var(--ink-soft);
+  font-style: italic;
+  font-weight: 450;
+  opacity: 1;
+}
+
 .split-subtotal,
 .split-gap,
 .split-line {
@@ -3252,4 +3280,76 @@ body.drawer-open {
 
 .split-results {
   margin-top: 0.4rem;
+}
+
+.morning-line {
+  margin: 0 0 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--panel);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.home-traffic {
+  margin: 0 0 0.7rem;
+}
+
+.home-traffic-card {
+  margin-bottom: 0.45rem;
+}
+
+.place-confirm {
+  appearance: none;
+  width: 100%;
+  margin-top: 0.85rem;
+  min-height: 44px;
+  border: 0;
+  border-radius: 0.85rem;
+  background: var(--accent, #2f9e6b);
+  color: #04140c;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.place-confirm:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (max-width: 768px) {
+  .drawer-backdrop {
+    z-index: 55;
+  }
+
+  .drawer-panel {
+    z-index: 60;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .settings-overlay {
+    z-index: 70;
+    place-items: stretch;
+  }
+
+  .settings-sheet {
+    width: 100%;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .drawer-head .icon-btn,
+  .settings-head .icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
 }

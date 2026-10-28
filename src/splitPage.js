@@ -283,7 +283,7 @@ export function createSplitPage(root, { mode = "bill" } = {}) {
         const amount = document.createElement("input");
         amount.className = "split-input";
         amount.type = "text";
-        amount.placeholder = "109.5 或 85+15";
+        amount.placeholder = "例如 109.5 或 85+15";
         amount.autocomplete = "off";
         amount.value = person.amountRaw;
         amount.setAttribute("aria-label", "金額");
@@ -336,7 +336,7 @@ export function createSplitPage(root, { mode = "bill" } = {}) {
 
     function paintKeetaPay(card) {
       card.append(el("h3", "split-card-title", "2. 優惠同實付"));
-      card.append(field("優惠券 / Koupon (-$)", state.couponRaw, "30 或 30+15", (value) => {
+      card.append(field("優惠券 / Koupon (-$)", state.couponRaw, "例如 30 或 30+15", (value) => {
         state.couponRaw = value;
         state.totalManual = false;
         paintResults();
@@ -344,7 +344,7 @@ export function createSplitPage(root, { mode = "bill" } = {}) {
       const extra = field(
         state.extraPercent ? "支付優惠 / 額外 Discount (%)" : "支付優惠 / 額外 Discount (-$)",
         state.extraRaw,
-        state.extraPercent ? "10" : "10",
+        "例如 10",
         (value) => {
           state.extraRaw = value;
           state.totalManual = false;
@@ -361,12 +361,12 @@ export function createSplitPage(root, { mode = "bill" } = {}) {
       });
       extra.wrap.append(percentBtn);
       card.append(extra.wrap);
-      card.append(field("運費 + 平台費 (+$)", state.feeRaw, "5+13", (value) => {
+      card.append(field("運費 + 平台費 (+$)", state.feeRaw, "例如 5+13", (value) => {
         state.feeRaw = value;
         state.totalManual = false;
         paintResults();
       }).wrap);
-      const total = field("總計實付", state.totalRaw, "297.50", (value) => {
+      const total = field("總計實付", state.totalRaw, "例如 297.50", (value) => {
         state.totalRaw = value;
         state.totalManual = true;
         paintResults();
@@ -378,7 +378,7 @@ export function createSplitPage(root, { mode = "bill" } = {}) {
 
     function paintDinePay(card) {
       card.append(el("h3", "split-card-title", "堂食加一"));
-      card.append(field("全單幾折（85 = 85折，100 或留空 = 無折）", state.discountRaw, "85", (value) => {
+      card.append(field("全單幾折（85 = 85折，100 或留空 = 無折）", state.discountRaw, "例如 85", (value) => {
         state.discountRaw = value;
         paintResults();
       }).wrap);
@@ -393,7 +393,7 @@ export function createSplitPage(root, { mode = "bill" } = {}) {
         }
       ));
       card.append(el("p", "split-note", "服務費固定加一（+10%）。折後加一先折再加一；折前原價加一係正價加一，折扣唔計落服務費。"));
-      card.append(field("已付訂金", state.depositRaw, "0", (value) => {
+      card.append(field("已付訂金", state.depositRaw, "例如 200，留空當 0", (value) => {
         state.depositRaw = value;
         paintResults();
       }).wrap);
@@ -541,13 +541,20 @@ export function createSplitPage(root, { mode = "bill" } = {}) {
       results.append(el("p", "split-line", state.round === "ceil"
         ? `齊頭向上合計 ${money(rounded.total, 0)}`
         : `應付合計 ${money(rounded.total, displayPlaces)}`));
-      amounts.forEach((amount, index) => {
+      const header = `正價 $${cooked.sub.toFixed(2)} · ${orderLabel} × ${term(dineMultiplier(discount, state.serviceOrder))} − 訂金 ${money(deposit, 2)}`;
+      const totalLine = state.round === "ceil"
+        ? `齊頭向上合計 ${money(rounded.total, 0)}`
+        : `應付合計 ${money(rounded.total, displayPlaces)}`;
+      const personLines = amounts.map((amount, index) => {
         const pay = rounded.shares[index];
         const mark = state.round === "tenth" && rounded.adjusted?.[index] ? "（已補尾數）" : "";
+        const text = `${personLabel(state.people[index]?.name, index)}　餐點 ${term(amount)}　應付 ${money(pay, displayPlaces)}${mark}`;
         const row = el("p", "split-line");
-        row.textContent = `${personLabel(state.people[index]?.name, index)}　餐點 ${term(amount)}　應付 ${money(pay, displayPlaces)}${mark}`;
+        row.textContent = text;
         results.append(row);
+        return text;
       });
+      results.dataset.copy = ["夾錢明細", "堂食加一", header, totalLine, ...personLines].join("\n");
     }
 
     paintPeople();
@@ -580,7 +587,7 @@ export function createSplitPage(root, { mode = "bill" } = {}) {
       }
       paintFxResults();
     });
-    const sticker = fieldInput("外幣標價", state.stickerRaw, "15800");
+    const sticker = fieldInput("外幣標價", state.stickerRaw, "例如 15800");
     sticker.input.addEventListener("input", () => {
       state.stickerRaw = sticker.input.value;
       paintFxResults();

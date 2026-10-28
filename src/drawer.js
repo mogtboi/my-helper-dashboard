@@ -70,7 +70,8 @@ function toggleRow(mod, on) {
 }
 
 /**
- * Left drawer (~67vw): 主頁 / 交通消息 / 買車成本 / 戲院場次 / 交通總覽 / 夾錢 / 設定.
+ * Phone: full-width sheet from 更多. Desktop: side drawer.
+ * Groups: 交通消息、戲院、夾錢、外幣、買車成本、設定.
  */
 export function createDrawer({
   root,
@@ -88,6 +89,7 @@ export function createDrawer({
   onNavigateTransit,
   onNavigateSplit,
   onNavigateFx,
+  onVisibility,
 }) {
   root.innerHTML = `
     <div class="drawer-backdrop" data-drawer-close hidden></div>
@@ -122,7 +124,7 @@ export function createDrawer({
 
   const renderRoot = () => {
     titleEl.textContent = "選單";
-    noteEl.textContent = "日常出行、生活工具，或者入設定管理主頁模組。";
+    noteEl.textContent = "交通消息、戲院、夾錢、外幣、買車成本、設定。";
     backBtn.hidden = true;
     body.innerHTML = `
       <nav class="drawer-cat-list" aria-label="選單">
@@ -256,6 +258,7 @@ export function createDrawer({
       screen = "root";
       render();
     }
+    onVisibility?.(open);
   };
 
   const toggle = () => setOpen(!open);

@@ -116,20 +116,92 @@ export async function fetchEta(stopId, route, serviceType) {
   return json.data || [];
 }
 
+/** Drop the KMB stop-code suffix, e.g. "白田巴士總站 (SS900)" → "白田巴士總站". */
+export function normalizeStopName(name) {
+  return String(name || "")
+    .replace(/\s*[（(][A-Za-z]{1,5}\d+[A-Za-z]?[）)]\s*$/u, "")
+    .replace(/[\s\u3000]+/g, "")
+    .trim();
+}
+
 /**
- * Try to attach the opposite-bound stop with the same Chinese name.
+ * Opposite stop: same normalised name, else the nearest stop within 400m.
+ * Live 64K / 104 opposite pairs are all inside that distance; names often
+ * differ only by the parenthetical stop code, or are a different roadside name.
  */
-export async function findOppositeDirection(route, serviceType, bound, nameTc, destTcOther) {
+export function pickOppositeStop(named, { nameTc, lat, lng } = {}) {
+  const key = normalizeStopName(nameTc);
+  const rows = (named || []).map((s) => {
+    const slat = Number(s.lat);
+    const slng = Number(s.lng);
+    const meters =
+      Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(slat) && Number.isFinite(slng)
+        ? haversineMeters(lat, lng, slat, slng)
+        : null;
+    return { ...s, meters, key: normalizeStopName(s.nameTc) };
+  });
+  const exact = rows.filter((s) => key && s.key === key);
+  if (exact.length) {
+    exact.sort((a, b) => (a.meters ?? 1e12) - (b.meters ?? 1e12));
+    return exact[0];
+  }
+  const near = rows
+    .filter((s) => s.meters != null && s.meters <= 400)
+    .sort((a, b) => a.meters - b.meters);
+  return near[0] || null;
+}
+
+/**
+ * Opposite-bound stop for 調轉方向.
+ * `hint.stopId` / coordinates disambiguate duplicate names.
+ */
+export async function findOppositeDirection(route, serviceType, bound, nameTc, destTcOther, hint = {}) {
   const otherBound = bound === "inbound" ? "outbound" : "inbound";
-  const rows = await fetchRouteStops(route, otherBound, serviceType);
-  const named = await mapStopsWithNames(rows);
-  const hit = named.find((s) => s.nameTc === nameTc);
+  const types = [String(serviceType || "1")];
+  if (types[0] !== "1") types.push("1");
+
+  let named = [];
+  let usedType = types[0];
+  for (const st of types) {
+    try {
+      const rows = await fetchRouteStops(route, otherBound, st);
+      if (!rows.length) continue;
+      named = await mapStopsWithNames(rows);
+      usedType = st;
+      if (named.length) break;
+    } catch {
+      /* try the next service type */
+    }
+  }
+  if (!named.length) return null;
+
+  let lat = Number(hint.lat);
+  let lng = Number(hint.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    try {
+      const here = await mapStopsWithNames(await fetchRouteStops(route, bound, serviceType || "1"));
+      const key = normalizeStopName(nameTc);
+      const self =
+        here.find((s) => hint.stopId && s.stopId === hint.stopId) ||
+        here.find((s) => s.nameTc === nameTc) ||
+        here.find((s) => key && normalizeStopName(s.nameTc) === key);
+      if (self) {
+        lat = Number(self.lat);
+        lng = Number(self.lng);
+      }
+    } catch {
+      /* name match can still succeed */
+    }
+  }
+
+  const hit = pickOppositeStop(named, { nameTc, lat, lng });
   if (!hit) return null;
   return {
     label: destTcOther ? `往${destTcOther}` : otherBound === "inbound" ? "往終點" : "往起點",
     stopId: hit.stopId,
+    stopName: hit.nameTc,
     bound: otherBound,
-    serviceType: String(serviceType),
+    serviceType: usedType,
   };
 }
 

@@ -6,7 +6,7 @@ import { createBus } from "./bus.js";
 import { createMtr } from "./mtr.js";
 import { createHoliday } from "./holiday.js";
 import { createRadio } from "./radio.js";
-import { createTraffic } from "./traffic.js";
+import { createTraffic, noticesForPins, homeNoticeHtml } from "./traffic.js";
 import { createTco } from "./tco.js";
 import { createMovies } from "./movies.js";
 import { createTransitHub } from "./transitHub.js";
@@ -54,7 +54,9 @@ app.innerHTML = `
   </header>
 
   <div id="view-home" class="app-view">
-    <p class="reorder-hint muted">☰ 選單：日常出行、戲院、夾錢、外幣、買車成本、設定；⋮⋮ 可拖曳排序（只存呢部機）</p>
+    <p id="morning-line" class="morning-line" aria-live="polite">載入摘要…</p>
+    <div id="home-traffic" class="home-traffic" hidden></div>
+    <p class="reorder-hint muted">⋮⋮ 可拖曳排序（只存呢部機）</p>
 
     <div id="panel-stack" class="panel-stack">
       <section class="panel panel-clock" data-panel-id="clock" aria-label="時鐘">
@@ -143,17 +145,13 @@ app.innerHTML = `
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 3.2 3.5 10.2V21h6.2v-6.1h4.6V21h6.2V10.2L12 3.2z"/></svg>
       <span>主頁</span>
     </button>
-    <button type="button" class="bottom-tab" data-tab="traffic">
+    <button type="button" class="bottom-tab" data-tab="transit">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 4.5 5.2v5.4C4.5 15.4 7.6 19.7 12 21c4.4-1.3 7.5-5.6 7.5-10.4V5.2L12 2zm-1.1 12.7L7.2 11l1.4-1.4 2.3 2.3 4.7-4.7L17 8.6l-6.1 6.1z"/></svg>
-      <span>交通消息</span>
+      <span>交通</span>
     </button>
-    <button type="button" class="bottom-tab" data-tab="tco">
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M18.9 6.1H5.1L3 9.2v1.2h1.1c.5 0 .9.4.9.9v6.5c0 .7.6 1.3 1.3 1.3h1.6c.7 0 1.3-.6 1.3-1.3v-.9h6.6v.9c0 .7.6 1.3 1.3 1.3h1.6c.7 0 1.3-.6 1.3-1.3v-6.5c0-.5.4-.9.9-.9H21V9.2l-2.1-3.1zM7.4 17.1c-.6 0-1.1-.5-1.1-1.1S6.8 14.9 7.4 14.9s1.1.5 1.1 1.1-.5 1.1-1.1 1.1zm9.2 0c-.6 0-1.1-.5-1.1-1.1s.5-1.1 1.1-1.1 1.1.5 1.1 1.1-.5 1.1-1.1 1.1zM5.7 8.1h12.6l.9 1.4H4.8l.9-1.4z"/></svg>
-      <span>買車成本</span>
-    </button>
-    <button type="button" class="bottom-tab" data-tab="settings">
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.1 12.9c0-.3 0-.6-.1-.9l1.7-1.3-1.6-2.8-2 .8c-.5-.4-1-.7-1.6-.9L15.1 5h-3.2l-.4 2.1c-.6.2-1.1.5-1.6.9l-2-.8-1.6 2.8 1.7 1.3c0 .3-.1.6-.1.9s0 .6.1.9L5.3 15.1l1.6 2.8 2-.8c.5.4 1 .7 1.6.9l.4 2.1h3.2l.4-2.1c.6-.2 1.1-.5 1.6-.9l2 .8 1.6-2.8-1.7-1.3c.1-.3.1-.6.1-.9zM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4z"/></svg>
-      <span>設定</span>
+    <button type="button" class="bottom-tab" data-tab="more">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 7h16v2H4V7zm0 4h16v2H4v-2zm0 4h16v2H4v-2z"/></svg>
+      <span>更多</span>
     </button>
   </nav>
 `;
@@ -190,8 +188,9 @@ const VIEW_SUB = {
 const bottomTabs = document.querySelector("#bottom-tabs");
 
 const syncBottomTabs = (name) => {
+  const tab = name === "home" ? "home" : name === "transit" ? "transit" : "more";
   bottomTabs?.querySelectorAll(".bottom-tab").forEach((btn) => {
-    const on = btn.dataset.tab === name;
+    const on = btn.dataset.tab === tab;
     btn.setAttribute("aria-current", on ? "page" : "false");
     btn.classList.toggle("is-active", on);
   });
@@ -207,7 +206,7 @@ const showView = (name) => {
   viewFx.hidden = name !== "fx";
   brandSub.textContent = VIEW_SUB[name] || "個人儀表板";
   document.body.dataset.view = name;
-  syncBottomTabs(name === "settings" ? "settings" : name);
+  syncBottomTabs(name);
 };
 
 const applyVisibility = () => {
@@ -243,12 +242,32 @@ const updateWeatherTitle = (place) => {
   weatherTitle.textContent = label ? `天氣 · ${label}` : "天氣";
 };
 
+const paintMorning = () => {
+  const line = document.querySelector("#morning-line");
+  if (!line) return;
+  const w = weather.getDigest();
+  const h = holiday.getDigest();
+  const etas = [bus.getSoonest(), mtr.getSoonest()].filter((row) => row && Number.isFinite(row.mins));
+  etas.sort((a, b) => a.mins - b.mins);
+  const bits = [];
+  if (w && (w.temp != null || w.warning)) {
+    bits.push([w.temp != null ? `${w.temp}°` : "", w.warning || ""].filter(Boolean).join(" "));
+  }
+  if (h?.text) bits.push(h.text);
+  if (etas[0]?.text) bits.push(etas[0].text);
+  line.textContent = bits.join(" · ") || "載入摘要…";
+};
+
 const weather = createWeather(document.querySelector("#weather-root"), config.weather, {
   onStatus: setNet,
   onChangePlace: () => settings.open("weather"),
+  onDigest: () => paintMorning(),
 });
 
-const holiday = createHoliday(document.querySelector("#holiday-root"), { onStatus: setNet });
+const holiday = createHoliday(document.querySelector("#holiday-root"), {
+  onStatus: setNet,
+  onDigest: () => paintMorning(),
+});
 
 const bus = createBus(
   document.querySelector("#bus-root"),
@@ -259,7 +278,9 @@ const bus = createBus(
     onSelectionPersist: (next) => {
       busSelection = next;
       transitHub.setBusSelection(next);
+      paintHomeTraffic();
     },
+    onDigest: () => paintMorning(),
   }
 );
 
@@ -275,11 +296,40 @@ const mtr = createMtr(
     onSelectionChange: (next) => {
       mtrSelection = next;
       transitHub.setMtrSelection(next);
+      paintHomeTraffic();
     },
+    onDigest: () => paintMorning(),
   }
 );
 
-const traffic = createTraffic(document.querySelector("#traffic-root"), { onStatus: setNet });
+const pinNeedles = () => {
+  const routes = [];
+  const names = [];
+  for (const it of busSelection?.items || []) {
+    if (it.route) routes.push(it.route);
+    const stop = String(it.stopName || "")
+      .replace(/\s*[（(][A-Za-z]{1,5}\d+[A-Za-z]?[）)]\s*$/u, "")
+      .trim();
+    if (stop.length >= 2) names.push(stop);
+  }
+  for (const station of mtrSelection?.stations || []) {
+    if (station.nameTc) names.push(station.nameTc);
+  }
+  return { routes, names };
+};
+
+const paintHomeTraffic = () => {
+  const host = document.querySelector("#home-traffic");
+  if (!host) return;
+  const html = homeNoticeHtml(noticesForPins(traffic.getItems(), pinNeedles(), 2));
+  host.hidden = !html;
+  host.innerHTML = html;
+};
+
+const traffic = createTraffic(document.querySelector("#traffic-root"), {
+  onStatus: setNet,
+  onItems: () => paintHomeTraffic(),
+});
 const tco = createTco(document.querySelector("#tco-root"));
 const movies = createMovies(document.querySelector("#movies-root"), { onStatus: setNet });
 const gmbHome = createGmb(document.querySelector("#gmb-root"), { mode: "home", onStatus: setNet });
@@ -384,6 +434,10 @@ const drawer = createDrawer({
     fxPage.start();
     setNet("外幣／退稅計數（只計本機）");
   },
+  onVisibility: (isOpen) => {
+    if (isOpen) syncBottomTabs("more");
+    else syncBottomTabs(document.body.dataset.view || "home");
+  },
 });
 
 document.querySelector("#menu-btn").addEventListener("click", () => drawer.toggle());
@@ -394,16 +448,14 @@ bottomTabs?.addEventListener("click", (e) => {
   const tab = btn.dataset.tab;
   if (tab === "home") {
     showView("home");
-  } else if (tab === "traffic") {
-    showView("traffic");
-    traffic.refresh();
-  } else if (tab === "tco") {
-    showView("tco");
-    tco.start();
-    setNet("買車成本模擬");
-  } else if (tab === "settings") {
-    syncBottomTabs("settings");
-    drawer.openSettingsHub();
+    drawer.close();
+  } else if (tab === "transit") {
+    showView("transit");
+    drawer.close();
+    transitHub.start();
+    setNet("交通總覽");
+  } else if (tab === "more") {
+    drawer.open();
   }
 });
 

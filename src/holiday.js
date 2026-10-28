@@ -34,8 +34,9 @@ function countStatutoryInMonth(list, ym) {
   ).length;
 }
 
-export function createHoliday(root, { onStatus } = {}) {
+export function createHoliday(root, { onStatus, onDigest } = {}) {
   let timer = null;
+  let digest = { text: "" };
 
   const render = (payload, err) => {
     if (err && !payload) {
@@ -50,6 +51,10 @@ export function createHoliday(root, { onStatus } = {}) {
     const upcoming = list.filter((h) => h.date >= today);
     const next = upcoming[0];
     const nextDays = next ? daysUntil(next.date, today) : null;
+    digest = {
+      text: !next ? "" : nextDays === 0 ? "今日係假期" : `下一假期 ${nextDays}日`,
+    };
+    onDigest?.();
     const labourThisMonth = countStatutoryInMonth(list, ym);
     const [, monthNum] = ym.split("-");
     const monthLabel = `${Number(monthNum)} 月`;
@@ -104,5 +109,5 @@ export function createHoliday(root, { onStatus } = {}) {
     if (timer) clearInterval(timer);
   };
 
-  return { start, refresh, destroy };
+  return { start, refresh, destroy, getDigest: () => digest };
 }

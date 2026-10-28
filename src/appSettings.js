@@ -29,7 +29,7 @@ export function createAppSettings({
           <button type="button" class="icon-btn" data-close aria-label="關閉">✕</button>
         </header>
         <p class="settings-note">
-          所有設定只保存在<strong>呢部手機／瀏覽器</strong>（localStorage）。
+          所有設定只保存在<strong>呢部裝置</strong>（localStorage）。
           唔會上雲、唔會同步去第二部機。
         </p>
 
@@ -59,6 +59,10 @@ export function createAppSettings({
       </div>
     `;
 
+    const closeSheet = () => {
+      overlayRoot.hidden = true;
+      overlayRoot.innerHTML = "";
+    };
     const sheet = overlayRoot.querySelector(".settings-sheet");
 
     sheet.querySelector(".settings-tabs").addEventListener("click", (e) => {
@@ -74,10 +78,7 @@ export function createAppSettings({
     });
 
     overlayRoot.addEventListener("click", (e) => {
-      if (e.target.closest("[data-close]")) {
-        overlayRoot.hidden = true;
-        overlayRoot.innerHTML = "";
-      }
+      if (e.target.closest("[data-close]")) closeSheet();
     });
 
     // —— Weather ——
@@ -139,9 +140,7 @@ export function createAppSettings({
       saveMtrSelection(sel);
       setMtrSelection(sel);
       onMtrChange(sel);
-      renderMtrCurrent();
-      paintMtrAddWizard();
-      mtrStatus.textContent = `已加入 ${meta.lineTc} · ${meta.nameTc}`;
+      closeSheet();
     };
 
     const paintMtrAddWizard = () => {
@@ -256,35 +255,53 @@ export function createAppSettings({
   return { open };
 }
 
-/** First-run / change weather region modal — 十八區. */
-export function openWeatherPlacePicker(overlayRoot, { currentPlace, onPick }) {
-  overlayRoot.hidden = false;
-  overlayRoot.innerHTML = `
-    <div class="settings-backdrop"></div>
-    <div class="settings-sheet place-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="place-picker-title">
-      <header class="settings-head">
-        <h2 id="place-picker-title">揀天氣地區（十八區）</h2>
-      </header>
-      <p class="settings-note">
-        第一次使用請揀香港十八區。選擇只存在呢部機，之後可喺設定更改。
-      </p>
-      <div class="place-grid" id="first-place-grid">
-        ${WEATHER_DISTRICTS.map(
-          (d) => `
-          <button type="button" class="place-chip" data-place="${d.id}"
-            aria-pressed="${d.id === currentPlace}">${d.nameTc}</button>`
-        ).join("")}
-      </div>
-    </div>
-  `;
+const WEATHER_SHORTCUTS = ["中西區", "油尖旺", "觀塘", "沙田", "大埔", "元朗"];
 
-  overlayRoot.querySelector("#first-place-grid").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-place]");
-    if (!btn) return;
-    const place = btn.dataset.place;
-    saveWeatherPlace(place);
-    overlayRoot.hidden = true;
-    overlayRoot.innerHTML = "";
-    onPick(place);
-  });
+/** First-run weather district. One confirm remembers the choice on this device. */
+export function openWeatherPlacePicker(overlayRoot, { currentPlace, onPick }) {
+  let picked = districtById(currentPlace) ? currentPlace : "";
+  const chip = (d, pressed) => `
+    <button type="button" class="place-chip" data-place="${d.id}" aria-pressed="${pressed}">${d.nameTc}</button>`;
+  const paint = () => {
+    overlayRoot.hidden = false;
+    overlayRoot.innerHTML = `
+      <div class="settings-backdrop"></div>
+      <div class="settings-sheet place-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="place-picker-title">
+        <header class="settings-head">
+          <h2 id="place-picker-title">揀天氣地區</h2>
+        </header>
+        <p class="settings-note">
+          揀一次就記住，唔會再問。只存呢部裝置，之後可喺設定更改。
+        </p>
+        <p class="settings-sub">常用地區</p>
+        <div class="place-grid" id="place-shortcuts">
+          ${WEATHER_SHORTCUTS.map((id) => WEATHER_DISTRICTS.find((d) => d.id === id))
+            .filter(Boolean)
+            .map((d) => chip(d, d.id === picked))
+            .join("")}
+        </div>
+        <p class="settings-sub">十八區</p>
+        <div class="place-grid" id="first-place-grid">
+          ${WEATHER_DISTRICTS.map((d) => chip(d, d.id === picked)).join("")}
+        </div>
+        <button type="button" class="place-confirm" id="place-confirm" ${picked ? "" : "disabled"}>確定，記住呢個地區</button>
+      </div>
+    `;
+    const choose = (e) => {
+      const btn = e.target.closest("[data-place]");
+      if (!btn) return;
+      picked = btn.dataset.place;
+      paint();
+    };
+    overlayRoot.querySelector("#place-shortcuts").addEventListener("click", choose);
+    overlayRoot.querySelector("#first-place-grid").addEventListener("click", choose);
+    overlayRoot.querySelector("#place-confirm").addEventListener("click", () => {
+      if (!districtById(picked)) return;
+      saveWeatherPlace(picked);
+      overlayRoot.hidden = true;
+      overlayRoot.innerHTML = "";
+      onPick(picked);
+    });
+  };
+  paint();
 }

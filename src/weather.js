@@ -138,11 +138,22 @@ async function fetchJson(url) {
 /**
  * Weather panel for HK 18 districts + warnings / UV / AQHI / sunrise / humidity.
  */
-export function createWeather(root, weatherConfig, { onStatus, onChangePlace } = {}) {
+function rainfallLine(rainfall) {
+  if (!rainfall) return "";
+  const min = Number(rainfall.min ?? 0);
+  const max = Number(rainfall.max ?? 0);
+  const a = Number.isFinite(min) ? min : 0;
+  const b = Number.isFinite(max) ? max : 0;
+  if (a === b) return `<div class="muted">雨量 ${a} mm</div>`;
+  return `<div class="muted">雨量 ${a}–${b} mm</div>`;
+}
+
+export function createWeather(root, weatherConfig, { onStatus, onChangePlace, onDigest } = {}) {
   let place = null;
   let last = null;
   let timer = null;
   let forecastOpen = false;
+  let digest = { temp: null, warning: "" };
 
   const render = () => {
     const district = districtById(place);
@@ -181,6 +192,9 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
       warningText: [...warns.map((w) => w.name), ...warnMsgs].join(" "),
       iconCode,
     });
+    const warning = warns[0]?.name || (warnMsgs[0] ? String(warnMsgs[0]).replace(/\s+/g, " ").slice(0, 18) : "");
+    digest = { temp: hit?.value ?? null, warning };
+    onDigest?.();
     const iconUrl = `${weatherConfig.iconBase}${iconCode}.png`;
     const humTrend =
       fndRh?.forecastMaxrh && fndRh?.forecastMinrh
@@ -201,11 +215,7 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
             ${uv ? ` · UV ${uv.value} ${uv.desc || ""}` : ""}
           </div>
           ${humTrend ? `<div class="muted">${humTrend}</div>` : ""}
-          ${
-            rainfall
-              ? `<div class="muted">雨量 ${rainfall.min ?? 0}–${rainfall.max ?? 0} mm</div>`
-              : ""
-          }
+          ${rainfallLine(rainfall)}
         </div>
       </div>
       <p class="weather-tip">${escapeHtml(tip)}</p>
@@ -324,5 +334,5 @@ export function createWeather(root, weatherConfig, { onStatus, onChangePlace } =
     document.removeEventListener("visibilitychange", onVis);
   };
 
-  return { start, setPlace, refresh: fetchAll, destroy };
+  return { start, setPlace, refresh: fetchAll, destroy, getDigest: () => digest };
 }

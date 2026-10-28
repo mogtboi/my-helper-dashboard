@@ -45,7 +45,7 @@ function formatNoEta(reason) {
 export function createMtr(
   root,
   titleEl,
-  { onStatus, onOpenSettings, setSelectionExternal, onSelectionChange } = {}
+  { onStatus, onOpenSettings, setSelectionExternal, onSelectionChange, onDigest } = {}
 ) {
   let selection = null;
   let activeId = null;
@@ -58,6 +58,8 @@ export function createMtr(
   let freshTimer = null;
   let lastFetchAt = 0;
   let refreshCtrl = null;
+  let soonest = null;
+  let soonSeq = 0;
 
   const persist = (next) => {
     selection = next;
@@ -134,7 +136,7 @@ export function createMtr(
         <div id="mtr-wizard" class="mtr-wizard"></div>
       </section>
 
-      <p class="device-local-hint">港鐵站只存呢部機 · 公開 Next Train API</p>
+      <p class="device-local-hint">港鐵站只存呢部裝置 · 公開 Next Train API</p>
     `;
 
     paintFavChips();
@@ -313,10 +315,13 @@ export function createMtr(
         persist(saveMtrSelection(next));
         activeId = meta.id;
         mode = "saved";
+        browse = { line: null, dir: null, station: null };
         paintShell();
         refresh();
         onStatus?.("已儲存港鐵站（本機）");
       } else {
+        browse = { line: null, dir: null, station: null };
+        paintWizard();
         onStatus?.("呢個站已喺已存列表");
       }
     });
@@ -378,6 +383,32 @@ export function createMtr(
       mtrDirTab = btn.dataset.dirTab;
       refresh({ force: true });
     });
+  };
+
+  const sampleSoonest = async () => {
+    const seq = ++soonSeq;
+    const stations = (selection?.stations || []).slice(0, 6);
+    let best = null;
+    for (const sta of stations) {
+      try {
+        const sched = await fetchMtrSchedule(sta.line, sta.sta);
+        const rows = [...(sched?.up || []), ...(sched?.down || [])];
+        for (const row of rows) {
+          if (row?.valid === "N") continue;
+          const mins = row.ttnt === "0" || row.ttnt === 0 ? 0 : Number(row.ttnt);
+          if (!Number.isFinite(mins)) continue;
+          if (!best || mins < best.mins) {
+            const when = mins === 0 ? "即將" : `${mins}分`;
+            best = { mins, text: `${sta.nameTc} ${when}` };
+          }
+        }
+      } catch {
+        /* keep the best row found so far */
+      }
+    }
+    if (seq !== soonSeq) return;
+    soonest = best;
+    onDigest?.();
   };
 
   const refresh = async ({ force = false } = {}) => {
@@ -443,6 +474,7 @@ export function createMtr(
       updateFreshLabel();
       updateStarBtn();
       onStatus?.("港鐵已更新");
+      sampleSoonest();
     } catch (e) {
       body.innerHTML = lastHtml
         ? `${lastHtml}<p class="error">刷新失敗：${escapeHtml(e.message || e)}</p>`
@@ -479,5 +511,5 @@ export function createMtr(
     document.removeEventListener("visibilitychange", onVis);
   };
 
-  return { start, setSelection, refresh, destroy };
+  return { start, setSelection, refresh, destroy, getSoonest: () => soonest };
 }

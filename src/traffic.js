@@ -275,7 +275,69 @@ async function fetchXml(url) {
   return res.text();
 }
 
-function renderCards(list) {
+const MTR_PAGE = "https://www.mtr.com.hk/";
+const TD_SPECIAL_PAGE = "https://www.td.gov.hk/tc/special_news/spnews.htm";
+
+function linkifyDetail(text) {
+  return String(text || "")
+    .split("\n")
+    .map((line) => {
+      const esc = escapeHtml(line);
+      if (!/詳情請參[閲閱看]/.test(line)) return esc;
+      let href = "";
+      if (/港鐵/.test(line)) href = MTR_PAGE;
+      else if (/特別交通/.test(line)) href = TD_SPECIAL_PAGE;
+      if (!href) return esc;
+      return `<a class="inline-link" href="${href}" target="_blank" rel="noopener noreferrer">${esc}</a>`;
+    })
+    .join("<br>");
+}
+
+/** One clock for the whole document, or "" when items carry different times. */
+export function sharedNoticeTime(list) {
+  const times = [
+    ...new Set((list || []).map((m) => String(m?.time || "").trim()).filter(Boolean)),
+  ];
+  return times.length === 1 ? times[0] : "";
+}
+
+function routeInText(text, route) {
+  const token = String(route || "").trim();
+  if (!token) return false;
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^A-Za-z0-9])${escaped}([^A-Za-z0-9]|$)`).test(text);
+}
+
+/** At most `limit` notices that name a pinned route, stop, or MTR station. */
+export function noticesForPins(items, { routes = [], names = [] } = {}, limit = 2) {
+  const needles = [...new Set(names.map((n) => String(n || "").trim()).filter((n) => n.length >= 2))];
+  const routeList = [...new Set(routes.map((r) => String(r || "").trim()).filter(Boolean))];
+  const hits = [];
+  for (const item of items || []) {
+    const hay = `${item.title || ""}\n${item.detail || ""}\n${item.location || ""}`;
+    const hit =
+      routeList.some((route) => routeInText(hay, route)) || needles.some((name) => hay.includes(name));
+    if (!hit) continue;
+    hits.push(item);
+    if (hits.length >= limit) break;
+  }
+  return hits;
+}
+
+export function homeNoticeHtml(items) {
+  if (!items?.length) return "";
+  return `<div class="home-traffic-list">${items
+    .map(
+      (m) => `
+    <article class="traffic-card home-traffic-card">
+      <h3 class="traffic-card-title">${escapeHtml(m.title)}</h3>
+      <p class="traffic-body">${linkifyDetail(m.detail)}</p>
+    </article>`
+    )
+    .join("")}</div>`;
+}
+
+function renderCards(list, { perCardTime = false } = {}) {
   if (!list.length) {
     return `<p class="muted">呢個分類暫時冇消息。</p>`;
   }
@@ -288,17 +350,17 @@ function renderCards(list) {
         ${m.status ? `<span class="traffic-status">${escapeHtml(m.status)}</span>` : ""}
       </header>
       ${m.location ? `<div class="traffic-loc">地點：${escapeHtml(m.location)}</div>` : ""}
-      <p class="traffic-body">${escapeHtml(m.detail)}</p>
+      <p class="traffic-body">${linkifyDetail(m.detail)}</p>
       <div class="traffic-meta muted">
-        ${m.time ? `時間：${escapeHtml(m.time)}` : "時間：—"}
-        · ${escapeHtml(REGIONS.find((r) => r.id === m.region)?.nameTc || "其他／跨區")}
+        ${perCardTime && m.time ? `時間：${escapeHtml(m.time)} · ` : ""}
+        ${escapeHtml(REGIONS.find((r) => r.id === m.region)?.nameTc || "其他／跨區")}
       </div>
     </article>`
     )
     .join("")}</div>`;
 }
 
-export function createTraffic(root, { onStatus } = {}) {
+export function createTraffic(root, { onStatus, onItems } = {}) {
   let timer = null;
   let last = null;
   let activeRegion = "all";
@@ -327,12 +389,19 @@ export function createTraffic(root, { onStatus } = {}) {
     const filtered =
       activeRegion === "all" ? list : list.filter((m) => (m.region || "other") === activeRegion);
 
+    const clock = sharedNoticeTime(list);
+    const perCardTime = !clock && list.some((m) => String(m.time || "").trim());
     root.innerHTML = `
       <div class="traffic-toolbar">
         <p class="muted traffic-summary">
           ${list.length ? `而家 ${list.length} 則特別交通消息` : "而家冇特別交通消息"}
           ${meta.source ? ` · ${escapeHtml(meta.source)}` : ""}
         </p>
+        ${
+          clock
+            ? `<p class="muted">全份消息同一時間：${escapeHtml(clock.trim())}</p>`
+            : ""
+        }
         <button type="button" class="ghost-btn" data-traffic-refresh>重新整理</button>
       </div>
       <div class="traffic-region-tabs" role="tablist" aria-label="地區分類">
@@ -344,7 +413,7 @@ export function createTraffic(root, { onStatus } = {}) {
           </button>`
         ).join("")}
       </div>
-      ${list.length ? renderCards(filtered) : `<p class="muted">暫時冇事故／特別安排消息。</p>`}
+      ${list.length ? renderCards(filtered, { perCardTime }) : `<p class="muted">暫時冇事故／特別安排消息。</p>`}
       ${err ? `<p class="error">部分更新失敗，顯示上次資料</p>` : ""}
       <p class="device-local-hint">運輸署特別交通消息 · 按內文地點歸入新界／九龍／港島；跨區或不清歸「其他／跨區」</p>
     `;
@@ -365,6 +434,7 @@ export function createTraffic(root, { onStatus } = {}) {
       const items = parseDataOneXml(xml);
       last = { items, source: "data.one.gov.hk／運輸署" };
       paint(items, null, last);
+      onItems?.(items);
       onStatus?.("交通消息已更新");
       return;
     } catch (e) {
@@ -375,6 +445,7 @@ export function createTraffic(root, { onStatus } = {}) {
       const items = parseTdXml(xml);
       last = { items, source: "td.gov.hk" };
       paint(items, err ? `主來源失敗（${err}），已用後備` : null, last);
+      onItems?.(items);
       onStatus?.(err ? "交通消息（後備來源）" : "交通消息已更新");
     } catch (e2) {
       paint(last?.items || null, err || e2.message || "載入失敗", last || {});
@@ -398,5 +469,5 @@ export function createTraffic(root, { onStatus } = {}) {
     document.removeEventListener("visibilitychange", onVis);
   };
 
-  return { start, refresh, destroy };
+  return { start, refresh, destroy, getItems: () => last?.items || [] };
 }

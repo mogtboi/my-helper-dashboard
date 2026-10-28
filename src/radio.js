@@ -1,7 +1,10 @@
 /**
- * Play RTHK HLS with user gesture.
- * Native HLS (Safari / Samsung Internet) first; else dynamic-import hls.js.
+ * Play RTHK HLS with the click that asked for it.
+ * Native HLS first; otherwise the bundled hls.js (static import, no extra host).
+ * audio.play() runs in the click turn, before any await, so the user gesture is kept.
  */
+import Hls from "hls.js";
+
 export function createRadio(root, radioConfig) {
   const stations = radioConfig.stations;
   let activeId = stations[0]?.id;
@@ -35,37 +38,6 @@ export function createRadio(root, radioConfig) {
     }
   };
 
-  const attachSource = async (url) => {
-    destroyHls();
-    audio.removeAttribute("src");
-
-    if (audio.canPlayType("application/vnd.apple.mpegurl")) {
-      audio.src = url;
-      return "native";
-    }
-
-    const { default: Hls } = await import("hls.js");
-    if (Hls.isSupported()) {
-      hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: false,
-      });
-      hls.loadSource(url);
-      hls.attachMedia(audio);
-      hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (data.fatal) {
-          status.textContent = "串流錯誤，稍後再試或換台";
-          status.classList.add("error");
-          setPlaying(false);
-        }
-      });
-      return "hls.js";
-    }
-    status.textContent = "呢個瀏覽器暫唔支援 HLS 電台串流";
-    status.classList.add("error");
-    return null;
-  };
-
   const setPlaying = (next) => {
     playing = next;
     playBtn.dataset.playing = String(playing);
@@ -75,29 +47,65 @@ export function createRadio(root, radioConfig) {
 
   const currentStation = () => stations.find((s) => s.id === activeId);
 
-  const play = async () => {
+  let playGen = 0;
+
+  const markPlaying = (gen, station) => {
+    if (gen !== playGen) return;
+    setPlaying(true);
+    status.classList.remove("error");
+    status.textContent = `播放中 · ${station.name}`;
+  };
+
+  const markPlayError = (gen, err) => {
+    if (gen !== playGen) return;
+    setPlaying(false);
+    status.classList.add("error");
+    status.textContent =
+      err?.name === "NotAllowedError"
+        ? "播放失敗（要用戶手勢／檢查網絡）"
+        : "播放失敗（檢查網絡或電台串流）";
+  };
+
+  /** Synchronous: must be called directly from the click handler. */
+  const play = () => {
     const station = currentStation();
     if (!station) return;
+    const gen = ++playGen;
     status.classList.remove("error");
     status.textContent = `連線 ${station.name}…`;
-    let mode;
-    try {
-      mode = await attachSource(station.url);
-    } catch {
-      status.textContent = "載入播放器失敗";
+    destroyHls();
+    audio.removeAttribute("src");
+
+    if (audio.canPlayType("application/vnd.apple.mpegurl")) {
+      audio.src = station.url;
+    } else if (Hls.isSupported()) {
+      hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+      hls.loadSource(station.url);
+      hls.attachMedia(audio);
+      hls.on(Hls.Events.ERROR, (_e, data) => {
+        if (!data?.fatal || gen !== playGen) return;
+        status.textContent = "串流錯誤，稍後再試或換台";
+        status.classList.add("error");
+        setPlaying(false);
+      });
+    } else {
+      status.textContent = "呢個瀏覽器暫唔支援 HLS 電台串流";
       status.classList.add("error");
       return;
     }
-    if (!mode) return;
-    try {
-      await audio.play();
-      setPlaying(true);
-      status.textContent = `播放中 · ${station.name}`;
-    } catch {
-      setPlaying(false);
-      status.textContent = "播放失敗（要用戶手勢／檢查網絡）";
-      status.classList.add("error");
-    }
+
+    const pending = audio.play();
+    pending.then(() => markPlaying(gen, station)).catch((err) => {
+      if (hls && err?.name !== "NotAllowedError") {
+        const retry = () => {
+          audio.play().then(() => markPlaying(gen, station)).catch((err2) => markPlayError(gen, err2));
+        };
+        if (hls.media) hls.once(Hls.Events.MANIFEST_PARSED, retry);
+        else retry();
+        return;
+      }
+      markPlayError(gen, err);
+    });
   };
 
   const pause = () => {
@@ -106,23 +114,20 @@ export function createRadio(root, radioConfig) {
     status.textContent = "已暫停";
   };
 
-  stationRow.addEventListener("click", async (e) => {
+  stationRow.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-station]");
     if (!btn) return;
     activeId = btn.dataset.station;
     stationRow.querySelectorAll(".station-btn").forEach((b) => {
       b.setAttribute("aria-pressed", String(b.dataset.station === activeId));
     });
-    if (playing) {
-      await play();
-    } else {
-      status.textContent = `已選 ${currentStation()?.name} · 撳播放`;
-    }
+    if (playing) play();
+    else status.textContent = `已選 ${currentStation()?.name} · 撳播放`;
   });
 
-  playBtn.addEventListener("click", async () => {
+  playBtn.addEventListener("click", () => {
     if (playing) pause();
-    else await play();
+    else play();
   });
 
   audio.addEventListener("error", () => {

@@ -601,12 +601,14 @@ export function createTco(root) {
 
       $("#kpi3-title").textContent = "EV 相對油車節省";
       $("#kpi3-main-val").textContent = fmtHK(result.gap);
-      $("#kpi3-badge").textContent = result.gap >= 0 ? "EV 較着數" : "油車較着數";
-      $("#kpi3-note").textContent =
-        result.gap >= 0
+      const sameCost = Math.round(result.gap) === 0;
+      $("#kpi3-badge").textContent = sameCost ? "兩者成本相同" : result.gap > 0 ? "EV 較着數" : "油車較着數";
+      $("#kpi3-note").textContent = sameCost
+        ? "同樣持有期内，EV 同油車預計總成本相同。"
+        : result.gap > 0
           ? `同樣持有期内，EV 預計少使約 ${fmtHK(result.gap)}。`
           : `油車預計少使約 ${fmtHK(-result.gap)}（未計充電方便／商標）。`;
-      $("#kpi4-main-val").textContent = result.gap >= 0 ? "傾向電動車" : "傾向汽油車";
+      $("#kpi4-main-val").textContent = sameCost ? "兩者成本相同" : result.gap > 0 ? "傾向電動車" : "傾向汽油車";
       $("#kpi4-note").textContent = "對照組用右側「同級汽油車參數」；主車參數來自上方輸入。";
     }
 

@@ -62,6 +62,20 @@ async function loadEtaRows(stopId, route, serviceType, bound) {
   return { items: [], reason: remarks.join("；") };
 }
 
+function shortStopName(name) {
+  const bare = String(name || "")
+    .replace(/\s*[（(][A-Za-z]{1,5}\d+[A-Za-z]?[）)]\s*$/u, "")
+    .trim();
+  return bare.length > 8 ? `${bare.slice(0, 8)}…` : bare;
+}
+
+function chipLabel(it) {
+  const dest = String(it?.destName || "").replace(/^往\s*/, "");
+  const dir = dest ? `往${dest}` : it?.bound === "inbound" ? "回程" : "去程";
+  const stop = shortStopName(it?.stopName);
+  return `${it?.route || ""} ${dir}${stop ? ` · ${stop}` : ""}`.trim();
+}
+
 function formatMeters(m) {
   if (!Number.isFinite(m)) return "";
   if (m < 1000) return `📍 距離約 ${Math.round(m)}m`;
@@ -107,7 +121,7 @@ function focusHtml(cur, eta) {
  * Compact bus card: header actions, one chip row, one ETA row.
  * Add / pin / remove all happen on the card. No settings-page bus tab.
  */
-export function createBus(root, titleEl, { onStatus, onSelectionPersist, actionsEl } = {}) {
+export function createBus(root, titleEl, { onStatus, onSelectionPersist, actionsEl, onDigest } = {}) {
   let selection = null;
   /** Viewed stop; may be unsaved until ★. */
   let current = null;
@@ -122,6 +136,10 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
   let searchDraft = "";
   let lastEtaHtml = "";
   let searchVariant = null;
+  let soonest = null;
+  let pinSeq = 0;
+  let locatePending = false;
+  let locateToken = 0;
 
   const persist = (next) => {
     selection = next;
@@ -173,7 +191,7 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     const chips = items
       .map((it) => {
         const on = current && it.id === (current.id || watchId(current));
-        const label = `${it.route} ${it.stopName}`;
+        const label = chipLabel(it);
         return `<button type="button" class="bus-pill" data-watch="${escapeHtml(it.id)}" aria-pressed="${on}">${escapeHtml(label)}</button>`;
       })
       .join("");
@@ -461,6 +479,7 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     const box = root.querySelector("#bus-eta");
     if (!box || !current) {
       if (box) box.innerHTML = `<p class="muted">撳「＋ 查車」加站</p>`;
+      samplePinned();
       return;
     }
     const seq = ++refreshSeq;
@@ -476,11 +495,34 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
       updateStar();
       paintChips();
       onStatus?.("巴士已更新");
+      samplePinned();
     } catch (e) {
       if (seq !== refreshSeq) return;
       box.innerHTML = `<p class="error">巴士暫無資料：${escapeHtml(e.message || e)}</p>`;
       onStatus?.("巴士更新失敗");
     }
+  };
+
+  const samplePinned = async () => {
+    const seq = ++pinSeq;
+    const items = (selection?.items || []).slice(0, 8);
+    const rows = await Promise.all(
+      items.map(async (it) => {
+        try {
+          const eta = await loadEtaRows(it.stopId, it.route, it.serviceType || "1", it.bound);
+          const mins = eta.items?.[0]?.mins;
+          if (mins == null) return null;
+          const dest = it.destName || eta.items[0].dest || "";
+          const when = mins === 0 ? "即將" : `${mins}分`;
+          return { mins, text: `${it.route} 往${dest} ${when}`.replace(/\s+/g, " ").trim() };
+        } catch {
+          return null;
+        }
+      })
+    );
+    if (seq !== pinSeq) return;
+    soonest = rows.filter(Boolean).sort((a, b) => a.mins - b.mins)[0] || null;
+    onDigest?.();
   };
 
   const locateNearest = () => {
@@ -492,9 +534,17 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
       onStatus?.("呢部機冇定位");
       return;
     }
+    if (locatePending) {
+      onStatus?.("定位中…（請喺提示允許定位）");
+      return;
+    }
+    const token = ++locateToken;
+    locatePending = true;
     onStatus?.("定位中…（只喺呢部機計距離）");
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        if (token !== locateToken) return;
+        locatePending = false;
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         try {
@@ -519,8 +569,15 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
           onStatus?.(`附近分站失敗：${err.message || err}`);
         }
       },
-      () => onStatus?.("定位未允許"),
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+      (err) => {
+        if (token !== locateToken) return;
+        locatePending = false;
+        const code = err?.code;
+        if (code === 1) onStatus?.("定位未允許");
+        else if (code === 3) onStatus?.("定位逾時，可再試一次");
+        else onStatus?.("定位失敗，可再試一次");
+      },
+      { enableHighAccuracy: false, timeout: 60000, maximumAge: 120000 }
     );
   };
 
@@ -530,22 +587,24 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     onStatus?.("調轉緊…");
     try {
       const variants = await fetchRouteVariants(current.route);
-      const other = variants.find(
-        (v) => v.serviceType === String(current.serviceType || "1") && v.bound !== current.bound
-      );
       const opp = await findOppositeDirection(
         current.route,
         current.serviceType || "1",
         current.bound,
         current.stopName,
-        other?.destTc
+        "",
+        { stopId: current.stopId }
       );
       if (!opp) {
-        onStatus?.("搵唔到反方向車站");
+        onStatus?.("搵唔到對應回程車站，請撳「＋ 查車」揀返程車站");
         return;
       }
+      const other =
+        variants.find((v) => v.serviceType === String(opp.serviceType) && v.bound === opp.bound) ||
+        variants.find((v) => v.bound === opp.bound);
+      const stopName = shortStopName(opp.stopName) || current.stopName;
       await adoptStop(
-        { stopId: opp.stopId, nameTc: current.stopName },
+        { stopId: opp.stopId, nameTc: opp.stopName || current.stopName },
         {
           route: current.route,
           bound: opp.bound,
@@ -553,7 +612,7 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
           destTc: other?.destTc || "",
         }
       );
-      onStatus?.(`已調轉：往${other?.destTc || ""}`);
+      onStatus?.(`已調轉：往${other?.destTc || stopName}`);
     } catch (err) {
       onStatus?.(`調轉失敗：${err.message || err}`);
     } finally {
@@ -646,5 +705,12 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     document.removeEventListener("visibilitychange", onVis);
   };
 
-  return { start, setSelection, refresh, destroy, _base: KMB_BASE };
+  return {
+    start,
+    setSelection,
+    refresh,
+    destroy,
+    getSoonest: () => soonest,
+    _base: KMB_BASE,
+  };
 }
