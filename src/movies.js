@@ -211,11 +211,10 @@ function pillLabel(show, today) {
   return bits.filter(Boolean).join(" · ");
 }
 
-function buyLink(url, directory = false) {
+function buyLink(url) {
   if (!url) return "";
   const href = escapeHtml(url);
-  const label = directory ? "🎟️ 戲院官網 / 即時場次 ↗" : "🎟️ 官網買飛 ↗";
-  return `<a class="movies-buy" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  return `<a class="movies-buy" href="${href}" target="_blank" rel="noopener noreferrer">去戲院官網</a>`;
 }
 
 function timePill(show, url, today) {
@@ -225,17 +224,17 @@ function timePill(show, url, today) {
   return `<a class="movies-time${sold}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
 }
 
-function safeShowUrl(show, cinema) {
+/** Deep link only when this show has its own https booking URL. No cinema-site fallback. */
+function safeShowUrl(show) {
   const raw = String(show?.bookingUrl || "").trim();
-  if (raw) {
-    try {
-      const url = new URL(raw);
-      if (url.protocol === "https:" && !url.username && !url.password && isListedOfficialHost(raw)) return url.href;
-    } catch {
-      /* fall back to the cinema ticket page */
-    }
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    if (url.protocol === "https:" && !url.username && !url.password && isListedOfficialHost(raw)) return url.href;
+  } catch {
+    return "";
   }
-  return safeBuyUrl(cinema);
+  return "";
 }
 
 function cmpCinema(a, b, sort) {
@@ -655,7 +654,7 @@ export function createMovies(root, { onStatus } = {}) {
         ${where ? `<p class="movies-where">${escapeHtml(where)}</p>` : ""}
         ${buyLink(url)}
         <div class="movies-show-block">
-          ${shows.map((show) => timePill(show, safeShowUrl(show, cinema), state.selectedDate)).join("")}
+          ${shows.map((show) => timePill(show, safeShowUrl(show), state.selectedDate)).join("")}
         </div>
       </article>
     `;
@@ -701,17 +700,16 @@ export function createMovies(root, { onStatus } = {}) {
           const open = row.cinema.id === state.cinemaId;
           const url = safeBuyUrl(row.cinema);
           const where = badgeText(row.cinema);
-          const directory = row.titles.length === 0;
           const detail = open
             ? `<div class="movies-expand">
                 ${where ? `<p class="movies-where">${escapeHtml(where)}</p>` : ""}
-                ${buyLink(url, directory)}
+                ${buyLink(url)}
                 ${row.titles
                   .map((movie) => {
                     const shows = showsFor(movie, row.cinema.id, state.selectedDate);
                     return `<div class="movies-block">
                       <h4>${escapeHtml(movie.title)}</h4>
-                      <div class="movies-show-block">${shows.map((show) => timePill(show, safeShowUrl(show, row.cinema), state.selectedDate)).join("")}</div>
+                      <div class="movies-show-block">${shows.map((show) => timePill(show, safeShowUrl(show), state.selectedDate)).join("")}</div>
                     </div>`;
                   })
                   .join("")}

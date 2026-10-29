@@ -1,7 +1,7 @@
 /**
  * Play RTHK HLS with the click that asked for it.
- * Native HLS first; otherwise the bundled hls.js (static import, no extra host).
- * audio.play() runs in the click turn, before any await, so the user gesture is kept.
+ * Chromium cannot play HLS from a raw m3u8 src. Bundled hls.js (Hls.isSupported)
+ * loads the stream; Safari keeps native HLS. audio.play() runs in the click turn.
  */
 import Hls from "hls.js";
 
@@ -15,6 +15,7 @@ export function createRadio(root, radioConfig) {
     <div class="radio-row" role="group" aria-label="電台頻道"></div>
     <button type="button" class="play-btn" data-playing="false" aria-pressed="false">播放</button>
     <p class="radio-status muted" aria-live="polite">撳播放先連線（唔會自動播）</p>
+    <p class="radio-fallback"><a href="https://www.rthk.hk/radio" target="_blank" rel="noopener noreferrer">去港台網頁收聽</a></p>
     <audio id="radio-audio" preload="none" playsinline></audio>
   `;
 
@@ -56,14 +57,29 @@ export function createRadio(root, radioConfig) {
     status.textContent = `播放中 · ${station.name}`;
   };
 
+  const hlsFatalText = (data) => {
+    const type = data?.type || "unknown";
+    const details = data?.details || "unknown";
+    const code = data?.response?.code;
+    const http = code ? ` HTTP ${code}` : "";
+    return `播放失敗（hls.js ${type} / ${details}${http}）`;
+  };
+
   const markPlayError = (gen, err) => {
     if (gen !== playGen) return;
     setPlaying(false);
     status.classList.add("error");
+    if (String(status.textContent || "").includes("hls.js")) return;
     status.textContent =
       err?.name === "NotAllowedError"
         ? "播放失敗（要用戶手勢／檢查網絡）"
         : "播放失敗（檢查網絡或電台串流）";
+  };
+
+  const safariNative = () => {
+    const ua = navigator.userAgent || "";
+    const safari = /safari/i.test(ua) && !/chrome|chromium|crios|android|edg/i.test(ua);
+    return safari && !!audio.canPlayType("application/vnd.apple.mpegurl");
   };
 
   /** Synchronous: must be called directly from the click handler. */
@@ -75,19 +91,20 @@ export function createRadio(root, radioConfig) {
     status.textContent = `連線 ${station.name}…`;
     destroyHls();
     audio.removeAttribute("src");
+    audio.load();
 
-    if (audio.canPlayType("application/vnd.apple.mpegurl")) {
-      audio.src = station.url;
-    } else if (Hls.isSupported()) {
+    if (!safariNative() && Hls.isSupported()) {
       hls = new Hls({ enableWorker: true, lowLatencyMode: false });
       hls.loadSource(station.url);
       hls.attachMedia(audio);
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data?.fatal || gen !== playGen) return;
-        status.textContent = "串流錯誤，稍後再試或換台";
+        status.textContent = hlsFatalText(data);
         status.classList.add("error");
         setPlaying(false);
       });
+    } else if (audio.canPlayType("application/vnd.apple.mpegurl")) {
+      audio.src = station.url;
     } else {
       status.textContent = "呢個瀏覽器暫唔支援 HLS 電台串流";
       status.classList.add("error");
@@ -132,6 +149,7 @@ export function createRadio(root, radioConfig) {
 
   audio.addEventListener("error", () => {
     if (!playing) return;
+    if (String(status.textContent || "").includes("hls.js")) return;
     status.textContent = "音訊中斷，可再撳播放重試";
     status.classList.add("error");
     setPlaying(false);

@@ -764,6 +764,12 @@ body {
   color: var(--ink-soft);
   font: inherit;
   padding: 0.38rem 0.7rem;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  height: auto;
 }
 
 .bus-seq-stop.is-here {
@@ -1090,7 +1096,7 @@ body {
   width: min(100%, 28rem);
   max-height: min(88dvh, 42rem);
   overflow: auto;
-  background: var(--panel-strong);
+  background: #1c2228;
   border: 1px solid var(--line);
   border-radius: 1.25rem 1.25rem 0 0;
   padding: 1rem 1rem calc(1.1rem + env(safe-area-inset-bottom));
@@ -1380,6 +1386,14 @@ body {
   min-height: 1.2em;
 }
 
+.radio-fallback {
+  margin: 0.35rem 0 0;
+}
+
+.radio-fallback a {
+  color: var(--accent);
+}
+
 .mtr-add-wizard {
   margin-top: 0.35rem;
 }
@@ -1438,6 +1452,11 @@ body.drawer-open {
   overflow: hidden;
 }
 
+body.drawer-open .brand,
+body.sheet-open .brand {
+  visibility: hidden;
+}
+
 .drawer-backdrop {
   position: fixed;
   inset: 0;
@@ -1456,7 +1475,7 @@ body.drawer-open {
   max-width: calc(100vw - 3.25rem);
   min-width: min(67vw, 18rem);
   height: 100dvh;
-  background: var(--panel-strong);
+  background: #1c2228;
   border-right: 1px solid var(--line);
   box-shadow: 8px 0 28px rgba(0, 0, 0, 0.45);
   transform: translateX(-105%);
@@ -1787,15 +1806,18 @@ body.drawer-open {
 
 .traffic-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.65rem;
+  min-width: 0;
 }
 
 .traffic-summary {
   margin: 0;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .traffic-list {
@@ -3392,6 +3414,10 @@ body.drawer-open {
   margin: 0.15rem 0 0.7rem;
 }
 
+.split-field[hidden] {
+  display: none !important;
+}
+
 .split-label,
 .split-note,
 .split-formula {
@@ -3470,6 +3496,15 @@ body.drawer-open {
 }
 
 @media (max-width: 768px) {
+  #view-traffic {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+  }
+
+  .traffic-summary {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
   .drawer-backdrop {
     z-index: 55;
   }
@@ -3479,6 +3514,7 @@ body.drawer-open {
     width: 100%;
     max-width: none;
     min-width: 0;
+    background: #1c2228;
   }
 
   .settings-overlay {
@@ -3491,6 +3527,7 @@ body.drawer-open {
     height: 100dvh;
     max-height: none;
     border-radius: 0;
+    background: #1c2228;
   }
 
   .drawer-head .icon-btn,

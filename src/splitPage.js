@@ -626,7 +626,7 @@ export function createSplitPage(root, { mode = "bill" } = {}) {
       ["6", "6%"],
       ["custom", "自訂回贈"],
     ];
-    const cbCustom = fieldInput("自訂回贈 %", state.cashbackCustom, "3");
+    const cbCustom = fieldInput("自訂回贈 %", state.cashbackCustom, "例如 3");
     const cbButtons = cbModes.map(([id, label]) => {
       const btn = el("button", "split-pill", label);
       btn.type = "button";

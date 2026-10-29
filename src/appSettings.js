@@ -20,6 +20,7 @@ export function createAppSettings({
 }) {
   const open = (focus = "weather") => {
     if (focus === "bus") focus = "weather";
+    document.body.classList.add("sheet-open");
     overlayRoot.hidden = false;
     overlayRoot.innerHTML = `
       <div class="settings-backdrop" data-close></div>
@@ -60,6 +61,7 @@ export function createAppSettings({
     `;
 
     const closeSheet = () => {
+      document.body.classList.remove("sheet-open");
       overlayRoot.hidden = true;
       overlayRoot.innerHTML = "";
     };
@@ -263,6 +265,7 @@ export function openWeatherPlacePicker(overlayRoot, { currentPlace, onPick }) {
   const chip = (d, pressed) => `
     <button type="button" class="place-chip" data-place="${d.id}" aria-pressed="${pressed}">${d.nameTc}</button>`;
   const paint = () => {
+    document.body.classList.add("sheet-open");
     overlayRoot.hidden = false;
     overlayRoot.innerHTML = `
       <div class="settings-backdrop"></div>
@@ -298,6 +301,7 @@ export function openWeatherPlacePicker(overlayRoot, { currentPlace, onPick }) {
     overlayRoot.querySelector("#place-confirm").addEventListener("click", () => {
       if (!districtById(picked)) return;
       saveWeatherPlace(picked);
+      document.body.classList.remove("sheet-open");
       overlayRoot.hidden = true;
       overlayRoot.innerHTML = "";
       onPick(picked);

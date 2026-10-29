@@ -273,7 +273,7 @@ export function createBus(root, titleEl, { onStatus, onSelectionPersist, actions
     list.innerHTML = sequence
       .map((stop) => {
         const here = stop.stopId === current?.stopId;
-        return `<li><button type="button" class="bus-seq-stop${here ? " is-here" : ""}" data-seq-stop="${escapeHtml(stop.stopId)}" ${here ? 'aria-current="true"' : ""}>${escapeHtml(shortStopName(stop.nameTc) || stop.nameTc)}</button></li>`;
+        return `<li><button type="button" class="bus-seq-stop${here ? " is-here" : ""}" data-seq-stop="${escapeHtml(stop.stopId)}" ${here ? 'aria-current="true"' : ""}>${escapeHtml(stop.nameTc || "")}</button></li>`;
       })
       .join("");
     const here = list.querySelector(".is-here");
