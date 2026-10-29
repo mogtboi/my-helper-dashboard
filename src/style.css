@@ -661,6 +661,156 @@ body {
   padding: 0.45rem 0.55rem;
 }
 
+.bus-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.bus-board-hint,
+.bus-seq-label,
+.bus-group-label,
+.bus-near-note {
+  margin: 0.35rem 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.bus-row,
+.bus-near-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  padding: 0.55rem 0.7rem;
+  touch-action: pan-y;
+}
+
+.bus-row-label,
+.bus-detail-label {
+  font-weight: 700;
+  min-width: 0;
+}
+
+.bus-row-eta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.bus-row .eta-focus-num,
+.bus-eta-slot.is-primary .eta-focus-num {
+  font-size: clamp(1.7rem, 7vw, 2.2rem);
+}
+
+.bus-row-next,
+.bus-eta-dest {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.bus-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.bus-detail-label {
+  flex: 1;
+}
+
+.bus-eta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.45rem 0;
+}
+
+.bus-eta-slot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bus-seq {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 16rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+}
+
+.bus-seq-stop {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  padding: 0.38rem 0.7rem;
+}
+
+.bus-seq-stop.is-here {
+  color: var(--ink);
+  font-weight: 750;
+  background: rgba(224, 112, 112, 0.18);
+}
+
+.bus-back {
+  margin-bottom: 0.35rem;
+}
+
+.bus-near-list,
+.bus-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.bus-recent {
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+
+.bus-mini-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.bus-mini-chip {
+  border: 1px solid rgba(224, 112, 112, 0.45);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.bus-route-input::placeholder,
+.bus-filter::placeholder {
+  color: var(--ink-soft);
+  font-style: italic;
+  opacity: 1;
+}
+
 .bus-stop-toggle {
   appearance: none;
   display: inline-flex;

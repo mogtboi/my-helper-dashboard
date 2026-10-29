@@ -45,6 +45,77 @@ export async function fetchRouteStops(route, bound, serviceType) {
   return json.data || [];
 }
 
+let stopListPromise = null;
+
+function boundName(raw) {
+  if (raw === "I" || raw === "inbound") return "inbound";
+  if (raw === "O" || raw === "outbound") return "outbound";
+  return raw || "outbound";
+}
+
+/** All KMB stops, cached in memory for search and nearby ranking. Coordinates stay in memory. */
+export function fetchStopList() {
+  if (!stopListPromise) {
+    stopListPromise = getJson(`${BASE}/stop`)
+      .then((json) =>
+        (json.data || []).map((row) => {
+          const lat = Number(row.lat);
+          const lng = Number(row.long);
+          return {
+            stopId: row.stop,
+            nameTc: row.name_tc || row.stop,
+            nameEn: row.name_en || "",
+            lat: Number.isFinite(lat) ? lat : null,
+            lng: Number.isFinite(lng) ? lng : null,
+          };
+        })
+      )
+      .catch((err) => {
+        stopListPromise = null;
+        throw err;
+      });
+  }
+  return stopListPromise;
+}
+
+let routesAtStopPromise = null;
+
+/**
+ * In-memory index of public route-stop rows: stop id → service-type-1 routes.
+ * Used to show which routes pass a stop. Not written to localStorage.
+ */
+export function fetchRoutesAtStopMap() {
+  if (!routesAtStopPromise) {
+    routesAtStopPromise = Promise.all([getJson(`${BASE}/route-stop`), fetchRouteCatalog()])
+      .then(([json, catalog]) => {
+        const dest = new Map(
+          catalog.map((row) => [`${row.route}|${row.bound}|${row.serviceType}`, row.destTc])
+        );
+        const index = new Map();
+        for (const row of json.data || []) {
+          const serviceType = String(row.service_type || "1");
+          if (serviceType !== "1") continue;
+          const bound = boundName(row.bound);
+          const hit = {
+            route: row.route,
+            bound,
+            serviceType,
+            destTc: dest.get(`${row.route}|${bound}|${serviceType}`) || "",
+          };
+          const list = index.get(row.stop);
+          if (list) list.push(hit);
+          else index.set(row.stop, [hit]);
+        }
+        return index;
+      })
+      .catch((err) => {
+        routesAtStopPromise = null;
+        throw err;
+      });
+  }
+  return routesAtStopPromise;
+}
+
 export async function fetchStopName(stopId) {
   const json = await getJson(`${BASE}/stop/${encodeURIComponent(stopId)}`);
   const lat = Number(json.data?.lat);
