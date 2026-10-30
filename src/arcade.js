@@ -1,20 +1,38 @@
 /**
- * Arcade hub only. No gameplay, audio, or saved progress.
- * Loaded on the first visit via dynamic import from main.js.
+ * Arcade hub. Loaded on the first visit via dynamic import from main.js.
+ * Does not autoplay BGM. playBgm is returned for a later 3v3 phase only.
  */
+import { isMuted, playBgm, playSfx, setMuted, stopBgm } from "./audioEngine.js";
+import { mountJpQuiz } from "./jpQuiz.js";
 
 const GAMES = [
-  { id: "duel", title: "3v3", kicker: "對線卡牌", blurb: "對線直擊與戰術換位" },
-  { id: "jp", title: "JP 日文特訓", kicker: "50音・單字", blurb: "50音、拼音與實用詞彙" },
-  { id: "pet", title: "口袋像素夥伴", kicker: "點陣育成", blurb: "口袋裡的像素夥伴" },
-  { id: "2048", title: "2048", kicker: "經典益智", blurb: "單手滑動合併" },
+  { id: "duel", title: "3v3", kicker: "對線卡牌", blurb: "對線直擊與戰術換位", soon: true },
+  { id: "jp", title: "JP 日文特訓", kicker: "50音・單字", blurb: "Lv.1 平假名同羅馬字", soon: false },
+  { id: "pet", title: "口袋像素夥伴", kicker: "點陣育成", blurb: "口袋裡的像素夥伴", soon: true },
+  { id: "2048", title: "2048", kicker: "經典益智", blurb: "單手滑動合併", soon: true },
 ];
+
+function bindMute(btn) {
+  const paint = () => {
+    const muted = isMuted();
+    btn.setAttribute("aria-pressed", muted ? "false" : "true");
+    btn.classList.toggle("is-on", !muted);
+    btn.textContent = muted ? "音效關" : "音效開";
+    btn.setAttribute("aria-label", muted ? "音效，而家靜音" : "音效，而家開咗");
+  };
+  paint();
+  btn.addEventListener("click", () => {
+    setMuted(!isMuted());
+    paint();
+  });
+}
 
 export function createArcade(root) {
   let started = false;
   let pulseTimer = 0;
 
-  const paint = () => {
+  const showHub = () => {
+    stopBgm();
     root.replaceChildren();
     const page = document.createElement("div");
     page.className = "arcade-page";
@@ -27,15 +45,12 @@ export function createArcade(root) {
     const sfx = document.createElement("button");
     sfx.type = "button";
     sfx.className = "arcade-sfx";
-    sfx.disabled = true;
-    sfx.setAttribute("aria-label", "音效（Phase 2 推出）");
-    sfx.title = "Phase 2 推出";
-    sfx.textContent = "音效";
+    bindMute(sfx);
     head.append(title, sfx);
 
     const intro = document.createElement("p");
     intro.className = "muted arcade-intro";
-    intro.textContent = "單手輕量小遊戲室，四款即將推出。";
+    intro.textContent = "JP 日文特訓可以開始。其他遊戲即將推出。";
 
     const status = document.createElement("p");
     status.className = "arcade-status";
@@ -56,7 +71,7 @@ export function createArcade(root) {
 
       const badge = document.createElement("span");
       badge.className = "arcade-soon";
-      badge.textContent = "[Coming Soon]";
+      badge.textContent = game.soon ? "[Coming Soon]" : "Lv.1";
 
       const kicker = document.createElement("span");
       kicker.className = "arcade-kicker";
@@ -76,6 +91,11 @@ export function createArcade(root) {
 
       card.append(top, name, blurb);
       card.addEventListener("click", () => {
+        if (!isMuted()) playSfx("tap");
+        if (game.id === "jp") {
+          mountJpQuiz(root, { onBack: showHub, bindMute });
+          return;
+        }
         grid.querySelectorAll(".arcade-card").forEach((el) => el.classList.remove("is-pulsing"));
         card.classList.add("is-pulsing");
         status.textContent = `${game.title} 即將推出`;
@@ -97,7 +117,8 @@ export function createArcade(root) {
     start() {
       if (started) return;
       started = true;
-      paint();
+      showHub();
     },
+    playBgm,
   };
 }

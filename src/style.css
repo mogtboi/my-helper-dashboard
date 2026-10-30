@@ -3571,8 +3571,13 @@ body.sheet-open .brand {
   font-size: 0.78rem;
   font-weight: 650;
   padding: 0.28rem 0.7rem;
-  opacity: 0.48;
-  cursor: not-allowed;
+  cursor: pointer;
+}
+
+.arcade-sfx.is-on {
+  border-color: #c9a15a;
+  color: #f5e6c4;
+  background: rgba(201, 161, 90, 0.16);
 }
 
 .arcade-intro {
@@ -3674,5 +3679,102 @@ body.sheet-open .brand {
 
   .arcade-card {
     min-height: 0;
+  }
+}
+
+.arcade-text-btn,
+.jp-level,
+.jp-choice {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #26343c;
+  border-radius: 0.85rem;
+  background: #161d22;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.arcade-text-btn {
+  width: auto;
+  min-height: 44px;
+  margin: 0 0 0.55rem;
+  padding: 0.35rem 0.7rem;
+}
+
+.jp-levels,
+.jp-choices {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.jp-choices {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 0.55rem;
+}
+
+.jp-level {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.jp-level.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.jp-level-title {
+  font-weight: 750;
+}
+
+.jp-level-detail,
+.jp-meta,
+.jp-review-row,
+.jp-review-title {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.jp-prompt {
+  margin: 0.2rem 0 0.75rem;
+  font-size: 2rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.jp-choice {
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.jp-choice.is-ok {
+  border-color: #3d8f72;
+  background: rgba(61, 143, 114, 0.2);
+}
+
+.jp-choice.is-ng {
+  border-color: #a85b52;
+  background: rgba(168, 91, 82, 0.2);
+}
+
+.jp-review {
+  margin-top: 0.85rem;
+}
+
+.jp-review-title,
+.jp-review-row,
+.jp-meta {
+  margin: 0.2rem 0;
+}
+
+@media (max-width: 340px) {
+  .jp-choices {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
