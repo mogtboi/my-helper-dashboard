@@ -137,6 +137,12 @@ app.innerHTML = `
     </section>
   </div>
 
+  <div id="view-arcade" class="app-view" hidden>
+    <section class="panel arcade-page-panel" aria-label="Arcade">
+      <div id="arcade-root"></div>
+    </section>
+  </div>
+
   <div id="drawer-root"></div>
   <div id="settings-overlay" class="settings-overlay" hidden></div>
 
@@ -173,6 +179,7 @@ const viewMovies = document.querySelector("#view-movies");
 const viewTransit = document.querySelector("#view-transit");
 const viewSplit = document.querySelector("#view-split");
 const viewFx = document.querySelector("#view-fx");
+const viewArcade = document.querySelector("#view-arcade");
 const stack = document.querySelector("#panel-stack");
 
 const VIEW_SUB = {
@@ -183,7 +190,10 @@ const VIEW_SUB = {
   transit: "交通總覽",
   split: "外賣／堂食夾錢",
   fx: "外幣／退稅計數",
+  arcade: "Arcade",
 };
+
+let arcadeReady = false;
 
 const bottomTabs = document.querySelector("#bottom-tabs");
 
@@ -204,6 +214,7 @@ const showView = (name) => {
   viewTransit.hidden = name !== "transit";
   viewSplit.hidden = name !== "split";
   viewFx.hidden = name !== "fx";
+  viewArcade.hidden = name !== "arcade";
   brandSub.textContent = VIEW_SUB[name] || "個人儀表板";
   document.body.dataset.view = name;
   syncBottomTabs(name);
@@ -433,6 +444,21 @@ const drawer = createDrawer({
     showView("fx");
     fxPage.start();
     setNet("外幣／退稅計數（只計本機）");
+  },
+  onNavigateArcade: () => {
+    showView("arcade");
+    setNet("Arcade");
+    if (arcadeReady) return;
+    arcadeReady = true;
+    const root = document.querySelector("#arcade-root");
+    import("./arcade.js")
+      .then(({ createArcade }) => {
+        createArcade(root).start();
+      })
+      .catch(() => {
+        arcadeReady = false;
+        setNet("Arcade 暫未載入");
+      });
   },
   onVisibility: (isOpen) => {
     if (isOpen) syncBottomTabs("more");
