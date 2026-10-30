@@ -7,7 +7,7 @@ import { mountJpQuiz } from "./jpQuiz.js";
 
 const GAMES = [
   { id: "duel", title: "3v3", kicker: "對線卡牌", blurb: "對線直擊與戰術換位", soon: true },
-  { id: "jp", title: "JP 日文特訓", kicker: "50音・單字", blurb: "Lv.1 平假名同羅馬字", soon: false },
+  { id: "jp", title: "JP 日文特訓", kicker: "50音・單字", blurb: "基本教學同 Lv.1–4", soon: false },
   { id: "pet", title: "口袋像素夥伴", kicker: "點陣育成", blurb: "口袋裡的像素夥伴", soon: true },
   { id: "2048", title: "2048", kicker: "經典益智", blurb: "單手滑動合併", soon: true },
 ];
@@ -71,7 +71,7 @@ export function createArcade(root) {
 
       const badge = document.createElement("span");
       badge.className = "arcade-soon";
-      badge.textContent = game.soon ? "[Coming Soon]" : "Lv.1";
+      badge.textContent = game.soon ? "[Coming Soon]" : "Lv.1–4";
 
       const kicker = document.createElement("span");
       kicker.className = "arcade-kicker";
