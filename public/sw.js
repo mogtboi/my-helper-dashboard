@@ -1,5 +1,5 @@
 /* my helper dashboard — static shell cache only. No API caching. */
-const CACHE = "my-helper-shell-v35";
+const CACHE = "my-helper-shell-v36";
 const PRECACHE = [
   "./",
   "./index.html",

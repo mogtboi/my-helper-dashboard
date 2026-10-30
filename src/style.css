@@ -3828,9 +3828,53 @@ body.sheet-open .brand {
   font-weight: 750;
 }
 
-.jp-kana-read {
+.jp-kana-read,
+.jp-kana-say {
   color: var(--ink-soft);
   font-size: 0.68rem;
+}
+
+button.jp-kana {
+  appearance: none;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.jp-kana-say {
+  font-size: 0.62rem;
+}
+
+.jp-level:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.jp-reveal:empty,
+.jp-actions:empty {
+  display: none;
+}
+
+.jp-reading {
+  margin: 0.15rem 0 0.35rem;
+  color: #e7f6f1;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.jp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.15rem 0 0.35rem;
+}
+
+.jp-actions .arcade-text-btn,
+.jp-actions .jp-level {
+  width: auto;
+  margin: 0;
 }
 
 @media (max-width: 340px) {
