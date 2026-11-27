@@ -1,11 +1,10 @@
 /* my helper dashboard — static shell cache only. No API caching. */
-const CACHE = "my-helper-shell-v36";
+const CACHE = "my-helper-shell-v37";
 const PRECACHE = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./data/hk-holidays.json",
-  "./data/movies.json",
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -46,8 +45,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Network-first for showtimes and the holiday calendar; fall back to cache.
-  const isFreshJson = /\/data\/(movies|hk-holidays)\.json$/.test(url.pathname);
+  // Network-first for the holiday calendar; fall back to cache.
+  const isFreshJson = /\/data\/hk-holidays\.json$/.test(url.pathname);
   if (isFreshJson) {
     event.respondWith(
       fetch(request)

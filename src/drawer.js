@@ -34,7 +34,6 @@ const DRAWER_GROUPS = [
   {
     heading: "生活消閒與工具",
     items: [
-      { id: "movies", nameTc: "戲院場次", blurb: "上映電影／各區戲院時間表／官網買飛" },
       { id: "split", nameTc: "🛵 外賣／堂食夾錢", blurb: "Keeta 夾單・堂食加一" },
       { id: "fx", nameTc: "💴 外幣／退稅計數", blurb: "免稅回贈・簽卡同現金" },
       { id: "tco", nameTc: "買車成本", blurb: "買車 vs 搭車 · EV vs 油車 TCO" },
@@ -72,7 +71,7 @@ function toggleRow(mod, on) {
 
 /**
  * Phone: full-width sheet from 更多. Desktop: side drawer.
- * Groups: 交通消息、戲院、夾錢、外幣、買車成本、設定.
+ * Groups: 交通消息、夾錢、外幣、買車成本、設定.
  */
 export function createDrawer({
   root,
@@ -86,7 +85,6 @@ export function createDrawer({
   onNavigateHome,
   onNavigateTraffic,
   onNavigateTco,
-  onNavigateMovies,
   onNavigateTransit,
   onNavigateSplit,
   onNavigateFx,
@@ -101,7 +99,7 @@ export function createDrawer({
         <h2 id="drawer-title">選單</h2>
         <button type="button" class="icon-btn" data-drawer-close aria-label="關閉">✕</button>
       </header>
-      <p class="drawer-note" id="drawer-note">主頁、交通消息、買車成本、戲院場次，或者入設定。</p>
+      <p class="drawer-note" id="drawer-note">主頁、交通消息、買車成本，或者入設定。</p>
       <div class="drawer-body" id="drawer-body"></div>
     </aside>
   `;
@@ -126,7 +124,7 @@ export function createDrawer({
 
   const renderRoot = () => {
     titleEl.textContent = "選單";
-    noteEl.textContent = "交通消息、戲院、夾錢、外幣、買車成本、Arcade、設定。";
+    noteEl.textContent = "交通消息、夾錢、外幣、買車成本、Arcade、設定。";
     backBtn.hidden = true;
     body.innerHTML = `
       <nav class="drawer-cat-list" aria-label="選單">
@@ -319,11 +317,6 @@ export function createDrawer({
       if (id === "tco") {
         setOpen(false);
         onNavigateTco?.();
-        return;
-      }
-      if (id === "movies") {
-        setOpen(false);
-        onNavigateMovies?.();
         return;
       }
       if (id === "transit") {

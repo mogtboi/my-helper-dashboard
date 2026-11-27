@@ -8,7 +8,6 @@ import { createHoliday } from "./holiday.js";
 import { createRadio } from "./radio.js";
 import { createTraffic, noticesForPins, homeNoticeHtml } from "./traffic.js";
 import { createTco } from "./tco.js";
-import { createMovies } from "./movies.js";
 import { createTransitHub } from "./transitHub.js";
 import { createGmb } from "./gmb.js";
 import { createCitybus } from "./citybus.js";
@@ -128,15 +127,6 @@ app.innerHTML = `
     </section>
   </div>
 
-  <div id="view-movies" class="app-view" hidden>
-    <section class="panel movies-page-panel" data-panel-id="movies" aria-labelledby="movies-title">
-      <div class="panel-head">
-        <h2 id="movies-title">戲院場次</h2>
-      </div>
-      <div id="movies-root"></div>
-    </section>
-  </div>
-
   <div id="view-arcade" class="app-view" hidden>
     <section class="panel arcade-page-panel" aria-label="Arcade">
       <div id="arcade-root"></div>
@@ -175,7 +165,6 @@ const setNet = (text) => {
 const viewHome = document.querySelector("#view-home");
 const viewTraffic = document.querySelector("#view-traffic");
 const viewTco = document.querySelector("#view-tco");
-const viewMovies = document.querySelector("#view-movies");
 const viewTransit = document.querySelector("#view-transit");
 const viewSplit = document.querySelector("#view-split");
 const viewFx = document.querySelector("#view-fx");
@@ -186,7 +175,6 @@ const VIEW_SUB = {
   home: "個人儀表板",
   traffic: "特別交通消息",
   tco: "買車成本模擬",
-  movies: "戲院場次",
   transit: "交通總覽",
   split: "外賣／堂食夾錢",
   fx: "外幣／退稅計數",
@@ -210,7 +198,6 @@ const showView = (name) => {
   viewHome.hidden = name !== "home";
   viewTraffic.hidden = name !== "traffic";
   viewTco.hidden = name !== "tco";
-  viewMovies.hidden = name !== "movies";
   viewTransit.hidden = name !== "transit";
   viewSplit.hidden = name !== "split";
   viewFx.hidden = name !== "fx";
@@ -342,7 +329,6 @@ const traffic = createTraffic(document.querySelector("#traffic-root"), {
   onItems: () => paintHomeTraffic(),
 });
 const tco = createTco(document.querySelector("#tco-root"));
-const movies = createMovies(document.querySelector("#movies-root"), { onStatus: setNet });
 const gmbHome = createGmb(document.querySelector("#gmb-root"), { mode: "home", onStatus: setNet });
 const citybusHome = createCitybus(document.querySelector("#citybus-root"), { mode: "home", onStatus: setNet });
 const parkingHome = createParking(document.querySelector("#parking-root"), { mode: "home", onStatus: setNet });
@@ -424,11 +410,6 @@ const drawer = createDrawer({
     showView("tco");
     tco.start();
     setNet("買車成本模擬");
-  },
-  onNavigateMovies: () => {
-    showView("movies");
-    movies.start();
-    setNet("戲院場次");
   },
   onNavigateTransit: () => {
     showView("transit");
