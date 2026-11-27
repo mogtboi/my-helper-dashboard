@@ -27,7 +27,7 @@ import {
   applyAppearance,
 } from "./prefsStore.js";
 import { createDrawer } from "./drawer.js";
-import { createSplitPage } from "./splitPage.js";
+import { createFxPage } from "./fxPage.js";
 
 const app = document.querySelector("#app");
 
@@ -107,16 +107,6 @@ app.innerHTML = `
     </section>
   </div>
 
-  <div id="view-split" class="app-view" hidden>
-    <section class="panel split-page-panel" aria-labelledby="split-title">
-      <div class="panel-head">
-        <h2 id="split-title">外賣／堂食夾錢</h2>
-      </div>
-      <p class="muted split-intro">Keeta 外賣夾單・堂食加一</p>
-      <div id="split-root"></div>
-    </section>
-  </div>
-
   <div id="view-fx" class="app-view" hidden>
     <section class="panel split-page-panel" aria-labelledby="fx-title">
       <div class="panel-head">
@@ -166,7 +156,6 @@ const viewHome = document.querySelector("#view-home");
 const viewTraffic = document.querySelector("#view-traffic");
 const viewTco = document.querySelector("#view-tco");
 const viewTransit = document.querySelector("#view-transit");
-const viewSplit = document.querySelector("#view-split");
 const viewFx = document.querySelector("#view-fx");
 const viewArcade = document.querySelector("#view-arcade");
 const stack = document.querySelector("#panel-stack");
@@ -176,7 +165,6 @@ const VIEW_SUB = {
   traffic: "特別交通消息",
   tco: "買車成本模擬",
   transit: "交通總覽",
-  split: "外賣／堂食夾錢",
   fx: "外幣／退稅計數",
   arcade: "Arcade",
 };
@@ -199,7 +187,6 @@ const showView = (name) => {
   viewTraffic.hidden = name !== "traffic";
   viewTco.hidden = name !== "tco";
   viewTransit.hidden = name !== "transit";
-  viewSplit.hidden = name !== "split";
   viewFx.hidden = name !== "fx";
   viewArcade.hidden = name !== "arcade";
   brandSub.textContent = VIEW_SUB[name] || "個人儀表板";
@@ -332,8 +319,7 @@ const tco = createTco(document.querySelector("#tco-root"));
 const gmbHome = createGmb(document.querySelector("#gmb-root"), { mode: "home", onStatus: setNet });
 const citybusHome = createCitybus(document.querySelector("#citybus-root"), { mode: "home", onStatus: setNet });
 const parkingHome = createParking(document.querySelector("#parking-root"), { mode: "home", onStatus: setNet });
-const splitPage = createSplitPage(document.querySelector("#split-root"), { mode: "bill" });
-const fxPage = createSplitPage(document.querySelector("#fx-root"), { mode: "fx" });
+const fxPage = createFxPage(document.querySelector("#fx-root"));
 const transitHub = createTransitHub(document.querySelector("#transit-hub-root"), {
   getEnabled: () => moduleEnabled,
   setEnabled: (next) => {
@@ -415,11 +401,6 @@ const drawer = createDrawer({
     showView("transit");
     transitHub.start();
     setNet("交通總覽");
-  },
-  onNavigateSplit: () => {
-    showView("split");
-    splitPage.start();
-    setNet("外賣／堂食夾錢（只計本機）");
   },
   onNavigateFx: () => {
     showView("fx");

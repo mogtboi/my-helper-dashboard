@@ -34,7 +34,6 @@ const DRAWER_GROUPS = [
   {
     heading: "生活消閒與工具",
     items: [
-      { id: "split", nameTc: "🛵 外賣／堂食夾錢", blurb: "Keeta 夾單・堂食加一" },
       { id: "fx", nameTc: "💴 外幣／退稅計數", blurb: "免稅回贈・簽卡同現金" },
       { id: "tco", nameTc: "買車成本", blurb: "買車 vs 搭車 · EV vs 油車 TCO" },
       { id: "arcade", nameTc: "Arcade", blurb: "3v3 卡牌・日文特訓・像素夥伴・2048" },
@@ -71,7 +70,7 @@ function toggleRow(mod, on) {
 
 /**
  * Phone: full-width sheet from 更多. Desktop: side drawer.
- * Groups: 交通消息、夾錢、外幣、買車成本、設定.
+ * Groups: 交通消息、外幣、買車成本、設定.
  */
 export function createDrawer({
   root,
@@ -86,7 +85,6 @@ export function createDrawer({
   onNavigateTraffic,
   onNavigateTco,
   onNavigateTransit,
-  onNavigateSplit,
   onNavigateFx,
   onNavigateArcade,
   onVisibility,
@@ -124,7 +122,7 @@ export function createDrawer({
 
   const renderRoot = () => {
     titleEl.textContent = "選單";
-    noteEl.textContent = "交通消息、夾錢、外幣、買車成本、Arcade、設定。";
+    noteEl.textContent = "交通消息、外幣、買車成本、Arcade、設定。";
     backBtn.hidden = true;
     body.innerHTML = `
       <nav class="drawer-cat-list" aria-label="選單">
@@ -322,11 +320,6 @@ export function createDrawer({
       if (id === "transit") {
         setOpen(false);
         onNavigateTransit?.();
-        return;
-      }
-      if (id === "split") {
-        setOpen(false);
-        onNavigateSplit?.();
         return;
       }
       if (id === "fx") {
